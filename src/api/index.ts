@@ -139,12 +139,18 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     res.json(pending);
   });
 
-  router.post('/recommendations/:id/approve', (req, res) => {
+  router.post('/recommendations/:id/approve', async (req, res) => {
     try {
       const rec = recommendationRepo.findById(req.params.id);
       if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
       recommendationRepo.updateStatus(req.params.id, 'approved', 'dashboard');
-      res.json({ status: 'approved', id: req.params.id });
+      // Execute the action
+      const { executeAction } = require('../services/execution');
+      const result = await executeAction(rec);
+      if (result.success) {
+        recommendationRepo.updateStatus(req.params.id, 'executed', 'dashboard');
+      }
+      res.json({ status: 'executed', id: req.params.id, execution: result });
     } catch (err) {
       res.status(500).json({ error: String(err) });
     }

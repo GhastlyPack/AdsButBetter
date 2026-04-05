@@ -1,6 +1,7 @@
 import { ButtonInteraction, EmbedBuilder } from 'discord.js';
 import { getDiscordClient } from './bot';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
+import { executeAction } from '../services/execution';
 import { sendLogMessage } from './alerts';
 import { logger } from '../utils/logger';
 
@@ -43,16 +44,30 @@ async function handleRecommendationButton(
       return;
     }
 
-    const status = action === 'approve' ? 'approved' : 'denied';
     const userName = interaction.user.tag;
-    recommendationRepo.updateStatus(recommendationId, status, userName);
+    let finalStatus = action === 'approve' ? 'approved' : 'denied';
+    let executionMsg = '';
+
+    recommendationRepo.updateStatus(recommendationId, finalStatus, userName);
+
+    // If approved, execute the action
+    if (action === 'approve') {
+      const result = await executeAction(rec as any);
+      if (result.success) {
+        finalStatus = 'executed';
+        recommendationRepo.updateStatus(recommendationId, 'executed', userName);
+        executionMsg = `\n${result.message}`;
+      } else {
+        executionMsg = `\nExecution failed: ${result.message}`;
+      }
+    }
 
     // Update the original message embed
     const embed = EmbedBuilder.from(interaction.message.embeds[0])
       .setColor(action === 'approve' ? 0x22c55e : 0xef4444)
       .addFields({
         name: 'Decision',
-        value: `**${status.toUpperCase()}** by ${userName}`,
+        value: `**${finalStatus.toUpperCase()}** by ${userName}${executionMsg}`,
       });
 
     await interaction.update({
@@ -62,14 +77,14 @@ async function handleRecommendationButton(
 
     // Log the decision
     await sendLogMessage(
-      `Action ${status.toUpperCase()}`,
-      `**${recAny.action}** on ${recAny.entity_id || recAny.entityId} was **${status}** by ${userName}\n\nReasoning: ${recAny.reasoning}`,
+      `Action ${finalStatus.toUpperCase()}`,
+      `**${recAny.action}** on ${recAny.entity_id || recAny.entityId} was **${finalStatus}** by ${userName}${executionMsg}\n\nReasoning: ${recAny.reasoning}`,
       action === 'approve' ? 0x22c55e : 0xef4444
     );
 
     logger.info('Recommendation resolved via Discord', {
       recommendationId,
-      status,
+      status: finalStatus,
       resolvedBy: userName,
     });
   } catch (err) {

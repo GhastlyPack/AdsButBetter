@@ -1,4 +1,6 @@
 import { Recommendation } from '../../models';
+import { campaignRepo } from '../../db/repositories/campaign.repo';
+import { logger } from '../../utils/logger';
 
 export interface ExecutionResult {
   success: boolean;
@@ -7,29 +9,55 @@ export interface ExecutionResult {
 }
 
 export async function executeAction(recommendation: Recommendation): Promise<ExecutionResult> {
-  // TODO: Replace with real Meta Ads API calls
-  // For MVP, this logs what would happen
+  const { action, entityId } = recommendation;
+  const actionParams = (typeof recommendation.actionParams === 'string'
+    ? JSON.parse(recommendation.actionParams)
+    : recommendation.actionParams) as Record<string, number>;
 
-  const { action, actionParams, entityId } = recommendation;
-
-  switch (action) {
-    case 'pause_campaign':
-      return mockExecute(`Paused campaign ${entityId}`);
-    case 'start_campaign':
-      return mockExecute(`Started campaign ${entityId}`);
-    case 'increase_budget':
-      return mockExecute(`Increased budget for ${entityId} by ${actionParams.percentage}%`);
-    case 'decrease_budget':
-      return mockExecute(`Decreased budget for ${entityId} by ${actionParams.percentage}%`);
-    default:
-      return { success: false, message: `Unknown action: ${action}`, executedAt: new Date().toISOString() };
+  const campaign = campaignRepo.findById(entityId);
+  if (!campaign) {
+    return { success: false, message: `Campaign ${entityId} not found`, executedAt: new Date().toISOString() };
   }
-}
 
-function mockExecute(message: string): ExecutionResult {
-  return {
-    success: true,
-    message: `[MOCK] ${message}`,
-    executedAt: new Date().toISOString(),
-  };
+  try {
+    switch (action) {
+      case 'pause_campaign': {
+        campaignRepo.updateStatus(entityId, 'paused');
+        const msg = `Paused campaign "${campaign.name}"`;
+        logger.info(msg, { entityId });
+        return { success: true, message: msg, executedAt: new Date().toISOString() };
+      }
+
+      case 'start_campaign': {
+        campaignRepo.updateStatus(entityId, 'active');
+        const msg = `Started campaign "${campaign.name}"`;
+        logger.info(msg, { entityId });
+        return { success: true, message: msg, executedAt: new Date().toISOString() };
+      }
+
+      case 'increase_budget': {
+        const pct = actionParams.percentage || 15;
+        const newBudget = Math.round(campaign.dailyBudget * (1 + pct / 100) * 100) / 100;
+        campaignRepo.updateBudget(entityId, newBudget);
+        const msg = `Increased budget for "${campaign.name}" by ${pct}%: $${campaign.dailyBudget} → $${newBudget}`;
+        logger.info(msg, { entityId, oldBudget: campaign.dailyBudget, newBudget });
+        return { success: true, message: msg, executedAt: new Date().toISOString() };
+      }
+
+      case 'decrease_budget': {
+        const pct = actionParams.percentage || 15;
+        const newBudget = Math.round(campaign.dailyBudget * (1 - pct / 100) * 100) / 100;
+        campaignRepo.updateBudget(entityId, Math.max(newBudget, 1)); // Never go below $1
+        const msg = `Decreased budget for "${campaign.name}" by ${pct}%: $${campaign.dailyBudget} → $${newBudget}`;
+        logger.info(msg, { entityId, oldBudget: campaign.dailyBudget, newBudget });
+        return { success: true, message: msg, executedAt: new Date().toISOString() };
+      }
+
+      default:
+        return { success: false, message: `Unknown action: ${action}`, executedAt: new Date().toISOString() };
+    }
+  } catch (err) {
+    logger.error('Action execution failed', { error: String(err), entityId, action });
+    return { success: false, message: String(err), executedAt: new Date().toISOString() };
+  }
 }
