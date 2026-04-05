@@ -20,12 +20,17 @@ export async function initDiscord(): Promise<Client> {
     ],
   });
 
-  client.once('ready', () => {
-    logger.info('Discord bot connected', { user: client.user?.tag });
-  });
-
   if (config.discord.botToken) {
     await client.login(config.discord.botToken);
+    // Wait for the ready event so client.user is available
+    await new Promise<void>(resolve => {
+      if (client.isReady()) {
+        resolve();
+      } else {
+        client.once('ready', () => resolve());
+      }
+    });
+    logger.info('Discord bot connected', { user: client.user?.tag });
   } else {
     logger.warn('No Discord bot token configured — bot will not connect');
   }
