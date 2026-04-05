@@ -67,6 +67,7 @@ export const recommendationRepo = {
     return getDb().prepare(`
       SELECT * FROM recommendations
       WHERE entity_id = ? AND triggered_rule_ids LIKE ? AND created_at > ?
+        AND status NOT IN ('expired', 'denied')
       ORDER BY created_at DESC LIMIT 1
     `).get(entityId, `%${ruleId}%`, cutoff) as Recommendation | undefined;
   },
