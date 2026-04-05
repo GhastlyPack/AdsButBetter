@@ -211,6 +211,12 @@ export default function App() {
 
       {error && <div className="error-bar">{error}</div>}
 
+      <div className="instructions">
+        <div className="instructions-content">
+          <strong>How to use:</strong> Click <em>Poll Metrics</em> to generate a new metrics snapshot for all campaigns. Click a campaign row to see detailed metrics and history. Use the anomaly buttons to simulate performance issues and test the rule engine.
+        </div>
+      </div>
+
       <main className="main">
         <section className="campaigns-section">
           <div className="section-header">

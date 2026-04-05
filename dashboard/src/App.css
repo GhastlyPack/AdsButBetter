@@ -86,6 +86,29 @@
   border: 1px solid var(--border);
 }
 
+/* Instructions */
+.instructions {
+  padding: 12px 24px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+}
+
+.instructions-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.instructions-content strong {
+  color: var(--text-primary);
+}
+
+.instructions-content em {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 500;
+}
+
 /* Main */
 .main {
   flex: 1;
