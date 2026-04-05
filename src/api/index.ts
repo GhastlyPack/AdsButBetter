@@ -10,6 +10,8 @@ import { offerRepo } from '../db/repositories/offer.repo';
 import { SwitchableDataProvider } from '../services/data-ingestion/switchable-provider';
 import { runEvaluation, restartScheduler } from '../scheduler';
 import { chat } from '../services/llm/chat';
+import { analyzeDecisionHistory, generateRuleSuggestions } from '../services/llm/feedback-analyzer';
+import { feedbackRepo } from '../db/repositories/feedback.repo';
 import { runtimeSettings } from '../config';
 
 let systemEnabled = true;
@@ -341,6 +343,69 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
   router.post('/test/approve-ad/:id', (req, res) => {
     campaignRepo.updateAdReviewStatus(req.params.id, 'approved');
     res.json({ approved: req.params.id });
+  });
+
+  // Feedback & Rule Suggestions
+  router.get('/feedback/stats', (_req, res) => {
+    const stats = feedbackRepo.getAllStats();
+    res.json(stats);
+  });
+
+  router.post('/feedback/analyze', (_req, res) => {
+    const stats = analyzeDecisionHistory();
+    res.json({ analyzed: stats.length, stats });
+  });
+
+  router.get('/suggestions', (_req, res) => {
+    const suggestions = feedbackRepo.getAllSuggestions();
+    res.json(suggestions);
+  });
+
+  router.get('/suggestions/pending', (_req, res) => {
+    const suggestions = feedbackRepo.getPendingSuggestions();
+    res.json(suggestions);
+  });
+
+  router.post('/suggestions/generate', async (_req, res) => {
+    try {
+      analyzeDecisionHistory(); // Update stats first
+      const suggestions = await generateRuleSuggestions();
+      res.json({ generated: suggestions.length, suggestions });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  router.post('/suggestions/:id/approve', (req, res) => {
+    const suggestion = feedbackRepo.findSuggestionById(req.params.id);
+    if (!suggestion) return res.status(404).json({ error: 'Suggestion not found' });
+
+    // Create the rule from the suggestion
+    const now = new Date().toISOString();
+    ruleRepo.upsert({
+      id: `rule-${suggestion.id}`,
+      name: suggestion.name,
+      description: suggestion.description,
+      enabled: true,
+      tier: suggestion.tier as any,
+      offerId: suggestion.offerId,
+      entityLevel: 'campaign',
+      conditions: suggestion.conditions,
+      action: suggestion.action as any,
+      actionParams: suggestion.actionParams,
+      priority: suggestion.priority,
+      cooldownMinutes: suggestion.cooldownMinutes,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    feedbackRepo.updateSuggestionStatus(req.params.id, 'approved', (req as any).userName || 'dashboard');
+    res.json({ status: 'approved', ruleId: `rule-${suggestion.id}` });
+  });
+
+  router.post('/suggestions/:id/deny', (req, res) => {
+    feedbackRepo.updateSuggestionStatus(req.params.id, 'denied', (req as any).userName || 'dashboard');
+    res.json({ status: 'denied' });
   });
 
   // AI Chat

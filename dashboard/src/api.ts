@@ -121,6 +121,15 @@ export const api = {
     fetch(`${BASE}/rules/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) }).then(r => r.json()),
   deleteRule: (id: string) =>
     fetch(`${BASE}/rules/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  // Feedback & Suggestions
+  getFeedbackStats: () => fetchJson<any[]>('/feedback/stats'),
+  analyzeFeedback: () => postJson('/feedback/analyze'),
+  getSuggestions: () => fetchJson<any[]>('/suggestions'),
+  getPendingSuggestions: () => fetchJson<any[]>('/suggestions/pending'),
+  generateSuggestions: () => postJson<{ generated: number; suggestions: any[] }>('/suggestions/generate'),
+  approveSuggestion: (id: string) => postJson(`/suggestions/${id}/approve`),
+  denySuggestion: (id: string) => postJson(`/suggestions/${id}/deny`),
+
   declineCampaign: (id: string) => postJson(`/test/decline/${id}`),
   approveCampaignAd: (id: string) => postJson(`/test/approve-ad/${id}`),
   getRecommendations: (limit = 50) => fetchJson<Recommendation[]>(`/recommendations?limit=${limit}`),

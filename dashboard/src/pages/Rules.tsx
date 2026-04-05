@@ -144,13 +144,16 @@ const inputStyle: React.CSSProperties = {
 export default function RulesPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const [filter, setFilter] = useState<'all' | 'universal' | 'offer'>('all');
+  const [generating, setGenerating] = useState(false);
 
   const load = () => {
     api.getRules().then(setRules).catch(() => {});
     api.getOffers().then(setOffers).catch(() => {});
+    api.getPendingSuggestions().then(setSuggestions).catch(() => {});
   };
   useEffect(() => { load(); }, []);
 
@@ -173,12 +176,70 @@ export default function RulesPage() {
   const filtered = filter === 'all' ? rules : rules.filter(r => r.tier === filter);
   const offerMap = Object.fromEntries(offers.map(o => [o.id, o]));
 
+  const handleGenerateSuggestions = async () => {
+    setGenerating(true);
+    try {
+      await api.generateSuggestions();
+      await api.getPendingSuggestions().then(setSuggestions);
+    } catch {}
+    setGenerating(false);
+  };
+
+  const handleApproveSuggestion = async (id: string) => {
+    await api.approveSuggestion(id);
+    load();
+  };
+
+  const handleDenySuggestion = async (id: string) => {
+    await api.denySuggestion(id);
+    load();
+  };
+
   return (
     <div>
       <div className="section-header">
         <h2>{rules.length} Rules</h2>
-        <button className="btn btn-primary" onClick={() => { setEditingRule(null); setShowForm(true); }}>+ New Rule</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" onClick={handleGenerateSuggestions} disabled={generating}>
+            {generating ? 'Analyzing...' : 'AI Suggest Rules'}
+          </button>
+          <button className="btn btn-primary" onClick={() => { setEditingRule(null); setShowForm(true); }}>+ New Rule</button>
+        </div>
       </div>
+
+      {suggestions.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ fontSize: 15, marginBottom: 12, color: 'var(--accent)' }}>AI Suggestions ({suggestions.length})</h3>
+          <div className="rule-list">
+            {suggestions.map(s => (
+              <div key={s.id} className="rule-card" style={{ borderLeft: '3px solid var(--accent)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="badge" style={{ background: 'var(--accent)20', color: 'var(--accent)', borderColor: 'var(--accent)40' }}>AI</span>
+                    <div className="rule-name">{s.name}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-sm btn-success" onClick={() => handleApproveSuggestion(s.id)}>Approve</button>
+                    <button className="btn btn-sm btn-danger" onClick={() => handleDenySuggestion(s.id)}>Deny</button>
+                  </div>
+                </div>
+                <div className="rule-description">{s.description}</div>
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8, fontStyle: 'italic' }}>{s.reasoning}</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="text-secondary" style={{ fontSize: 12 }}>IF</span>
+                  {s.conditions.map((c: any, i: number) => (
+                    <span key={i} className="condition-chip">
+                      {c.metric} {OPERATOR_LABELS[c.operator] || c.operator} {c.threshold}
+                    </span>
+                  ))}
+                  <span className="text-secondary" style={{ fontSize: 12 }}>THEN</span>
+                  <span className="action-chip">{ACTION_LABELS[s.action] || s.action}{s.actionParams?.percentage ? ` (${s.actionParams.percentage}%)` : ''}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="filter-tabs" style={{ marginBottom: 16 }}>
         <button className={`filter-tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All ({rules.length})</button>

@@ -93,3 +93,32 @@ CREATE TABLE IF NOT EXISTS decision_logs (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (recommendation_id) REFERENCES recommendations(id)
 );
+
+CREATE TABLE IF NOT EXISTS rule_suggestions (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  tier TEXT NOT NULL DEFAULT 'universal',
+  offer_id TEXT,
+  conditions TEXT NOT NULL,
+  action TEXT NOT NULL,
+  action_params TEXT NOT NULL DEFAULT '{}',
+  priority INTEGER NOT NULL DEFAULT 10,
+  cooldown_minutes INTEGER NOT NULL DEFAULT 60,
+  reasoning TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  suggested_at TEXT NOT NULL DEFAULT (datetime('now')),
+  resolved_at TEXT,
+  resolved_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS feedback_stats (
+  rule_id TEXT NOT NULL,
+  total_triggered INTEGER NOT NULL DEFAULT 0,
+  total_approved INTEGER NOT NULL DEFAULT 0,
+  total_denied INTEGER NOT NULL DEFAULT 0,
+  total_executed INTEGER NOT NULL DEFAULT 0,
+  approval_rate REAL NOT NULL DEFAULT 0,
+  last_analyzed TEXT NOT NULL,
+  PRIMARY KEY (rule_id)
+);
