@@ -21,6 +21,7 @@ export interface Campaign {
   name: string;
   status: string;
   adReviewStatus: string;
+  offerId: string | null;
   dailyBudget: number;
   lifetimeBudget: number | null;
   createdAt: string;
