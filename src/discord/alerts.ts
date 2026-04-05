@@ -87,6 +87,29 @@ export async function sendRecommendationAlert(recommendation: Recommendation): P
   return message.id;
 }
 
+export async function deleteMessages(messageIds: string[]): Promise<void> {
+  const client = getDiscordClient();
+  const channelId = config.discord.alertsChannelId;
+  if (!channelId || messageIds.length === 0) return;
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !(channel instanceof TextChannel)) return;
+
+    for (const msgId of messageIds) {
+      try {
+        const msg = await channel.messages.fetch(msgId);
+        await msg.delete();
+      } catch {
+        // Message might already be deleted
+      }
+    }
+    logger.info('Deleted old alert messages', { count: messageIds.length });
+  } catch (err) {
+    logger.error('Failed to delete messages', { error: String(err) });
+  }
+}
+
 export async function sendLogMessage(title: string, description: string, color: number = 0x7a8fa3): Promise<void> {
   const client = getDiscordClient();
   const channelId = config.discord.logsChannelId;

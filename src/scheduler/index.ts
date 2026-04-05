@@ -8,7 +8,7 @@ import { evaluateRules } from '../services/rule-engine';
 import { generateRecommendation } from '../services/recommendation';
 import { Recommendation } from '../models';
 import { randomUUID } from 'crypto';
-import { sendRecommendationAlert, sendLogMessage } from '../discord/alerts';
+import { sendRecommendationAlert, sendLogMessage, deleteMessages } from '../discord/alerts';
 import { logger } from '../utils/logger';
 
 async function sendDiscordAlert(rec: Recommendation): Promise<void> {
@@ -24,6 +24,13 @@ async function sendDiscordAlert(rec: Recommendation): Promise<void> {
 }
 
 export async function runEvaluation(): Promise<{ evaluated: number; triggered: number; recommendations: string[] }> {
+  // Expire old pending recommendations and clean up their Discord messages
+  const { expired, discordMessageIds } = recommendationRepo.expirePending();
+  if (expired > 0) {
+    logger.info('Expired old pending recommendations', { count: expired });
+    await deleteMessages(discordMessageIds);
+  }
+
   const rules = ruleRepo.findEnabled();
   const { campaignRepo } = require('../db/repositories/campaign.repo');
   const campaigns = campaignRepo.findAll();

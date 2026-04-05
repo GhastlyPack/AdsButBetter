@@ -44,6 +44,24 @@ export const recommendationRepo = {
     ).run(status, resolvedBy || null, id);
   },
 
+  expirePending(): { expired: number; discordMessageIds: string[] } {
+    const pending = getDb().prepare(
+      "SELECT id, discord_message_id FROM recommendations WHERE status = 'pending'"
+    ).all() as { id: string; discord_message_id: string | null }[];
+
+    const messageIds: string[] = [];
+    for (const rec of pending) {
+      getDb().prepare(
+        "UPDATE recommendations SET status = 'expired', resolved_at = datetime('now') WHERE id = ?"
+      ).run(rec.id);
+      if (rec.discord_message_id) {
+        messageIds.push(rec.discord_message_id);
+      }
+    }
+
+    return { expired: pending.length, discordMessageIds: messageIds };
+  },
+
   findRecentForEntity(entityId: string, ruleId: string, minutesAgo: number): Recommendation | undefined {
     const cutoff = new Date(Date.now() - minutesAgo * 60 * 1000).toISOString();
     return getDb().prepare(`
