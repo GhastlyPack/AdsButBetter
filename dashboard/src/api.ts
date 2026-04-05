@@ -34,12 +34,15 @@ export interface MetricsSnapshot {
   spend: number;
   impressions: number;
   clicks: number;
-  conversions: number;
-  revenue: number;
+  leads: number;
   ctr: number;
   cpc: number;
-  cpa: number;
-  roas: number;
+  cpl: number;
+  registration_rate: number;
+  qualified_leads: number | null;
+  cpql: number | null;
+  revenue: number | null;
+  roas: number | null;
 }
 
 export const api = {

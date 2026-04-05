@@ -24,5 +24,6 @@ jobs:
             npm ci
             npm run build
             cd ..
+            rm -f adsbutbetter.db
             npm prune --omit=dev
             sudo systemctl restart adsbutbetter

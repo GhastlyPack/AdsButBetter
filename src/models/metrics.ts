@@ -9,12 +9,17 @@ export interface MetricsSnapshot {
   spend: number;
   impressions: number;
   clicks: number;
-  conversions: number;
-  revenue: number;
+  leads: number;              // registrations (webinar signups, form fills, etc.)
 
   // Derived (calculated on ingestion)
-  ctr: number;        // clicks / impressions
-  cpc: number;        // spend / clicks
-  cpa: number;        // spend / conversions
-  roas: number;       // revenue / spend
+  ctr: number;                // clicks / impressions
+  cpc: number;                // spend / clicks
+  cpl: number;                // spend / leads
+  registrationRate: number;   // leads / clicks (landing page conversion)
+
+  // Populated later via GHL integration
+  qualifiedLeads: number | null;
+  cpql: number | null;        // spend / qualifiedLeads
+  revenue: number | null;
+  roas: number | null;        // revenue / spend
 }

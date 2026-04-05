@@ -4,12 +4,13 @@ import { MetricsSnapshot } from '../../models';
 export const metricsRepo = {
   insert(snapshot: MetricsSnapshot): void {
     getDb().prepare(`
-      INSERT INTO metrics_snapshots (id, entity_id, entity_level, timestamp, spend, impressions, clicks, conversions, revenue, ctr, cpc, cpa, roas)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO metrics_snapshots (id, entity_id, entity_level, timestamp, spend, impressions, clicks, leads, ctr, cpc, cpl, registration_rate, qualified_leads, cpql, revenue, roas)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       snapshot.id, snapshot.entityId, snapshot.entityLevel, snapshot.timestamp,
-      snapshot.spend, snapshot.impressions, snapshot.clicks, snapshot.conversions, snapshot.revenue,
-      snapshot.ctr, snapshot.cpc, snapshot.cpa, snapshot.roas
+      snapshot.spend, snapshot.impressions, snapshot.clicks, snapshot.leads,
+      snapshot.ctr, snapshot.cpc, snapshot.cpl, snapshot.registrationRate,
+      snapshot.qualifiedLeads, snapshot.cpql, snapshot.revenue, snapshot.roas
     );
   },
 
@@ -23,5 +24,9 @@ export const metricsRepo = {
     return getDb().prepare(
       'SELECT * FROM metrics_snapshots WHERE entity_id = ? ORDER BY timestamp DESC LIMIT ?'
     ).all(entityId, limit) as MetricsSnapshot[];
+  },
+
+  deleteAll(): void {
+    getDb().prepare('DELETE FROM metrics_snapshots').run();
   },
 };

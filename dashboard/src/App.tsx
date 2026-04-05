@@ -12,6 +12,10 @@ function formatCurrency(n: number): string {
   return '$' + n.toFixed(2);
 }
 
+function formatPercent(n: number): string {
+  return (n * 100).toFixed(2) + '%';
+}
+
 function StatusBadge({ status }: { status: string }) {
   const color = status === 'active' ? 'var(--green)' : status === 'paused' ? 'var(--orange)' : 'var(--text-secondary)';
   return (
@@ -52,10 +56,12 @@ function CampaignRow({
       <td>{metrics ? formatCurrency(metrics.spend) : '-'}</td>
       <td>{metrics ? formatNumber(metrics.impressions) : '-'}</td>
       <td>{metrics ? formatNumber(metrics.clicks) : '-'}</td>
-      <td>{metrics ? metrics.conversions : '-'}</td>
-      <td>{metrics ? formatCurrency(metrics.revenue) : '-'}</td>
-      <td className={metrics && metrics.cpa > 40 ? 'text-red' : ''}>{metrics ? formatCurrency(metrics.cpa) : '-'}</td>
-      <td className={metrics && metrics.roas < 1.5 ? 'text-red' : metrics && metrics.roas > 3 ? 'text-green' : ''}>{metrics ? metrics.roas.toFixed(2) : '-'}</td>
+      <td>{metrics ? metrics.leads : '-'}</td>
+      <td>{metrics ? formatCurrency(metrics.cpc) : '-'}</td>
+      <td>{metrics ? formatPercent(metrics.ctr) : '-'}</td>
+      <td className={metrics && metrics.cpl > 75 ? 'text-red' : metrics && metrics.cpl < 30 ? 'text-green' : ''}>
+        {metrics ? formatCurrency(metrics.cpl) : '-'}
+      </td>
     </tr>
   );
 }
@@ -74,12 +80,17 @@ function CampaignDetail({ campaign, metrics }: { campaign: Campaign; metrics: Me
         <MetricCard label="Spend" value={formatCurrency(latest.spend)} />
         <MetricCard label="Impressions" value={formatNumber(latest.impressions)} />
         <MetricCard label="Clicks" value={formatNumber(latest.clicks)} />
-        <MetricCard label="Conversions" value={latest.conversions.toString()} />
-        <MetricCard label="Revenue" value={formatCurrency(latest.revenue)} color="var(--green)" />
-        <MetricCard label="CTR" value={(latest.ctr * 100).toFixed(2) + '%'} />
+        <MetricCard label="Leads" value={latest.leads.toString()} />
         <MetricCard label="CPC" value={formatCurrency(latest.cpc)} />
-        <MetricCard label="CPA" value={formatCurrency(latest.cpa)} color={latest.cpa > 40 ? 'var(--red)' : undefined} />
-        <MetricCard label="ROAS" value={latest.roas.toFixed(2) + 'x'} color={latest.roas < 1.5 ? 'var(--red)' : latest.roas > 3 ? 'var(--green)' : undefined} />
+        <MetricCard label="CTR" value={formatPercent(latest.ctr)} />
+        <MetricCard label="CPL" value={formatCurrency(latest.cpl)} color={latest.cpl > 75 ? 'var(--red)' : latest.cpl < 30 ? 'var(--green)' : undefined} />
+        <MetricCard label="Reg Rate" value={formatPercent(latest.registration_rate)} />
+        {latest.qualified_leads != null && (
+          <MetricCard label="Qualified Leads" value={latest.qualified_leads.toString()} color="var(--blue)" />
+        )}
+        {latest.cpql != null && (
+          <MetricCard label="CPQL" value={formatCurrency(latest.cpql)} />
+        )}
       </div>
 
       <h4>History ({metrics.length} snapshots)</h4>
@@ -91,10 +102,10 @@ function CampaignDetail({ campaign, metrics }: { campaign: Campaign; metrics: Me
               <th>Spend</th>
               <th>Imp</th>
               <th>Clicks</th>
-              <th>Conv</th>
-              <th>Revenue</th>
-              <th>CPA</th>
-              <th>ROAS</th>
+              <th>Leads</th>
+              <th>CPC</th>
+              <th>CTR</th>
+              <th>CPL</th>
             </tr>
           </thead>
           <tbody>
@@ -104,10 +115,10 @@ function CampaignDetail({ campaign, metrics }: { campaign: Campaign; metrics: Me
                 <td>{formatCurrency(m.spend)}</td>
                 <td>{formatNumber(m.impressions)}</td>
                 <td>{formatNumber(m.clicks)}</td>
-                <td>{m.conversions}</td>
-                <td>{formatCurrency(m.revenue)}</td>
-                <td className={m.cpa > 40 ? 'text-red' : ''}>{formatCurrency(m.cpa)}</td>
-                <td className={m.roas < 1.5 ? 'text-red' : m.roas > 3 ? 'text-green' : ''}>{m.roas.toFixed(2)}</td>
+                <td>{m.leads}</td>
+                <td>{formatCurrency(m.cpc)}</td>
+                <td>{formatPercent(m.ctr)}</td>
+                <td className={m.cpl > 75 ? 'text-red' : m.cpl < 30 ? 'text-green' : ''}>{formatCurrency(m.cpl)}</td>
               </tr>
             ))}
           </tbody>
@@ -207,10 +218,10 @@ export default function App() {
                   <th>Spend</th>
                   <th>Impressions</th>
                   <th>Clicks</th>
-                  <th>Conv</th>
-                  <th>Revenue</th>
-                  <th>CPA</th>
-                  <th>ROAS</th>
+                  <th>Leads</th>
+                  <th>CPC</th>
+                  <th>CTR</th>
+                  <th>CPL</th>
                 </tr>
               </thead>
               <tbody>
@@ -234,8 +245,8 @@ export default function App() {
               <h2>Campaign Detail</h2>
               <div className="anomaly-controls">
                 <span className="text-secondary">Inject Anomaly:</span>
-                <button className="btn btn-sm btn-danger" onClick={() => handleAnomaly('spike_cpa')}>Spike CPA</button>
-                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('drop_roas')}>Drop ROAS</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleAnomaly('spike_cpl')}>Spike CPL</button>
+                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('zero_leads')}>Zero Leads</button>
                 <button className="btn btn-sm btn-secondary" onClick={() => handleAnomaly('zero_impressions')}>Zero Impr</button>
                 <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('budget_blowout')}>Budget Blowout</button>
               </div>

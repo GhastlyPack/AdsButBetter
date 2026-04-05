@@ -16,12 +16,15 @@ CREATE TABLE IF NOT EXISTS metrics_snapshots (
   spend REAL NOT NULL DEFAULT 0,
   impressions INTEGER NOT NULL DEFAULT 0,
   clicks INTEGER NOT NULL DEFAULT 0,
-  conversions INTEGER NOT NULL DEFAULT 0,
-  revenue REAL NOT NULL DEFAULT 0,
+  leads INTEGER NOT NULL DEFAULT 0,
   ctr REAL NOT NULL DEFAULT 0,
   cpc REAL NOT NULL DEFAULT 0,
-  cpa REAL NOT NULL DEFAULT 0,
-  roas REAL NOT NULL DEFAULT 0
+  cpl REAL NOT NULL DEFAULT 0,
+  registration_rate REAL NOT NULL DEFAULT 0,
+  qualified_leads INTEGER,
+  cpql REAL,
+  revenue REAL,
+  roas REAL
 );
 
 CREATE INDEX IF NOT EXISTS idx_metrics_entity ON metrics_snapshots(entity_id, timestamp);

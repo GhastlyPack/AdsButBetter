@@ -4,13 +4,13 @@ import { MetricsSnapshot } from '../../models';
 import { MOCK_CAMPAIGNS, MockCampaignProfile } from './mock-campaigns';
 import { logger } from '../../utils/logger';
 
-export type AnomalyType = 'spike_cpa' | 'drop_roas' | 'zero_impressions' | 'budget_blowout';
+export type AnomalyType = 'spike_cpl' | 'zero_leads' | 'zero_impressions' | 'budget_blowout';
 
 interface AnomalyConfig {
   campaignId: string;
   type: AnomalyType;
-  duration: number;   // how many snapshots the anomaly lasts
-  remaining: number;  // snapshots remaining
+  duration: number;
+  remaining: number;
 }
 
 export class MockDataProvider implements DataProvider {
@@ -48,8 +48,8 @@ export class MockDataProvider implements DataProvider {
 
     const ctr = raw.impressions > 0 ? raw.clicks / raw.impressions : 0;
     const cpc = raw.clicks > 0 ? raw.spend / raw.clicks : 0;
-    const cpa = raw.conversions > 0 ? raw.spend / raw.conversions : 0;
-    const roas = raw.spend > 0 ? raw.revenue / raw.spend : 0;
+    const cpl = raw.leads > 0 ? raw.spend / raw.leads : 0;
+    const registrationRate = raw.clicks > 0 ? raw.leads / raw.clicks : 0;
 
     return {
       id: randomUUID(),
@@ -59,52 +59,48 @@ export class MockDataProvider implements DataProvider {
       spend: round(raw.spend),
       impressions: Math.round(raw.impressions),
       clicks: Math.round(raw.clicks),
-      conversions: Math.round(raw.conversions),
-      revenue: round(raw.revenue),
+      leads: Math.round(raw.leads),
       ctr: round(ctr, 4),
       cpc: round(cpc),
-      cpa: round(cpa),
-      roas: round(roas),
+      cpl: round(cpl),
+      registrationRate: round(registrationRate, 4),
+      // GHL integration fields — null until connected
+      qualifiedLeads: null,
+      cpql: null,
+      revenue: null,
+      roas: null,
     };
   }
 
   private generateRawMetrics(
     profile: MockCampaignProfile,
     anomaly: AnomalyConfig | null
-  ): { spend: number; impressions: number; clicks: number; conversions: number; revenue: number } {
-    const { baseImpressions, baseCtr, baseConversionRate, baseRevenuePerConversion, volatility } = profile;
+  ): { spend: number; impressions: number; clicks: number; leads: number } {
+    const { baseImpressions, baseCtr, baseRegistrationRate, volatility } = profile;
     const budget = profile.campaign.dailyBudget;
 
-    // Base metrics with random fluctuation
     let impressions = vary(baseImpressions, volatility);
     let clicks = Math.round(impressions * vary(baseCtr, volatility));
-    let conversions = Math.round(clicks * vary(baseConversionRate, volatility));
-    let revenue = conversions * vary(baseRevenuePerConversion, volatility);
-
-    // Spend is roughly proportional to impressions, capped by budget
+    let leads = Math.round(clicks * vary(baseRegistrationRate, volatility));
     let spend = Math.min(budget, (impressions / baseImpressions) * budget * vary(1, 0.1));
 
-    // Apply anomaly effects
     if (anomaly) {
       switch (anomaly.type) {
-        case 'spike_cpa':
-          // Conversions tank but spend stays high
-          conversions = Math.max(1, Math.round(conversions * 0.15));
-          revenue = conversions * baseRevenuePerConversion * 0.5;
+        case 'spike_cpl':
+          // Leads tank but spend stays high
+          leads = Math.max(1, Math.round(leads * 0.1));
           break;
-        case 'drop_roas':
-          // Revenue drops significantly
-          revenue = revenue * 0.2;
+        case 'zero_leads':
+          // Getting clicks but no registrations
+          leads = 0;
           break;
         case 'zero_impressions':
           impressions = 0;
           clicks = 0;
-          conversions = 0;
-          revenue = 0;
+          leads = 0;
           spend = 0;
           break;
         case 'budget_blowout':
-          // Spend exceeds budget
           spend = budget * vary(1.8, 0.2);
           impressions = impressions * 2;
           clicks = Math.round(clicks * 1.5);
@@ -116,8 +112,7 @@ export class MockDataProvider implements DataProvider {
       spend: Math.max(0, spend),
       impressions: Math.max(0, impressions),
       clicks: Math.max(0, Math.min(clicks, impressions)),
-      conversions: Math.max(0, Math.min(conversions, clicks)),
-      revenue: Math.max(0, revenue),
+      leads: Math.max(0, Math.min(leads, clicks)),
     };
   }
 

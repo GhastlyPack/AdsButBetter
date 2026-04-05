@@ -1,43 +1,43 @@
 [
   {
-    "id": "rule-high-cpa",
-    "name": "High CPA - Pause Campaign",
-    "description": "Pause campaign if CPA exceeds $50 with at least 10 conversions",
+    "id": "rule-high-cpl",
+    "name": "High CPL - Decrease Budget",
+    "description": "Decrease budget by 20% if CPL exceeds $75 with at least 5 leads",
     "enabled": true,
     "entityLevel": "campaign",
     "conditions": [
-      { "metric": "cpa", "operator": "gt", "threshold": 50 },
-      { "metric": "conversions", "operator": "gte", "threshold": 10 }
+      { "metric": "cpl", "operator": "gt", "threshold": 75 },
+      { "metric": "leads", "operator": "gte", "threshold": 5 }
     ],
-    "action": "pause_campaign",
-    "actionParams": {},
+    "action": "decrease_budget",
+    "actionParams": { "percentage": 20 },
     "priority": 10,
     "cooldownMinutes": 120
   },
   {
-    "id": "rule-low-roas",
-    "name": "Low ROAS - Decrease Budget",
-    "description": "Decrease budget by 20% if ROAS drops below 1.5 with sufficient spend",
+    "id": "rule-very-high-cpl",
+    "name": "Very High CPL - Pause Campaign",
+    "description": "Pause campaign if CPL exceeds $120 with sufficient spend",
     "enabled": true,
     "entityLevel": "campaign",
     "conditions": [
-      { "metric": "roas", "operator": "lt", "threshold": 1.5 },
+      { "metric": "cpl", "operator": "gt", "threshold": 120 },
       { "metric": "spend", "operator": "gte", "threshold": 100 }
     ],
-    "action": "decrease_budget",
-    "actionParams": { "percentage": 20 },
-    "priority": 8,
-    "cooldownMinutes": 60
+    "action": "pause_campaign",
+    "actionParams": {},
+    "priority": 15,
+    "cooldownMinutes": 120
   },
   {
-    "id": "rule-high-roas",
-    "name": "High ROAS - Increase Budget",
-    "description": "Increase budget by 15% if ROAS exceeds 3.0 with sufficient data",
+    "id": "rule-low-cpl",
+    "name": "Low CPL - Increase Budget",
+    "description": "Increase budget by 15% if CPL is under $30 with at least 10 leads",
     "enabled": true,
     "entityLevel": "campaign",
     "conditions": [
-      { "metric": "roas", "operator": "gt", "threshold": 3.0 },
-      { "metric": "conversions", "operator": "gte", "threshold": 5 }
+      { "metric": "cpl", "operator": "lt", "threshold": 30 },
+      { "metric": "leads", "operator": "gte", "threshold": 10 }
     ],
     "action": "increase_budget",
     "actionParams": { "percentage": 15 },
@@ -55,7 +55,37 @@
     ],
     "action": "pause_campaign",
     "actionParams": {},
-    "priority": 15,
+    "priority": 20,
     "cooldownMinutes": 30
+  },
+  {
+    "id": "rule-high-cpc",
+    "name": "High CPC - Decrease Budget",
+    "description": "Decrease budget by 15% if CPC exceeds $8",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "cpc", "operator": "gt", "threshold": 8 },
+      { "metric": "clicks", "operator": "gte", "threshold": 50 }
+    ],
+    "action": "decrease_budget",
+    "actionParams": { "percentage": 15 },
+    "priority": 8,
+    "cooldownMinutes": 60
+  },
+  {
+    "id": "rule-low-ctr",
+    "name": "Low CTR - Flag",
+    "description": "Pause campaign if CTR drops below 0.5% with sufficient impressions",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "ctr", "operator": "lt", "threshold": 0.005 },
+      { "metric": "impressions", "operator": "gte", "threshold": 10000 }
+    ],
+    "action": "pause_campaign",
+    "actionParams": {},
+    "priority": 7,
+    "cooldownMinutes": 120
   }
 ]

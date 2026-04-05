@@ -16,8 +16,8 @@ export interface DecisionLog {
   resolvedBy: string | null;
 
   // Snapshot of metrics at decision time
-  metricsBefore: Record<string, number>;
-  metricsAfter: Record<string, number> | null;  // filled by post-change evaluator
+  metricsBefore: Record<string, number | null>;
+  metricsAfter: Record<string, number | null> | null;  // filled by post-change evaluator
 
   executedAt: string | null;
   createdAt: string;
