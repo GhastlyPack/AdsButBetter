@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import cookieParser from 'cookie-parser';
 import path from 'path';
 import { config } from './config';
 import { initDb, closeDb } from './db';
@@ -30,41 +29,120 @@ async function main() {
   // Set up Express
   const app = express();
   app.use(cors());
-  app.use(cookieParser());
   app.use(express.json());
 
-  // Password protection with cookie session
-  const APP_PASSWORD = process.env.APP_PASSWORD || 'BOWSKY';
+  // Auth: Auth0 if configured, otherwise fallback to password
+  const AUTH0_DOMAIN = process.env.AUTH0_DOMAIN;
+  const AUTH0_CLIENT_ID = process.env.AUTH0_CLIENT_ID;
+  const AUTH0_CLIENT_SECRET = process.env.AUTH0_CLIENT_SECRET;
+  const AUTH0_BASE_URL = process.env.AUTH0_BASE_URL || `https://app.adsbutbetter.com`;
+  const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || 'bowskyventures.com';
 
-  // Login endpoint — sets a cookie
-  app.post('/api/auth/login', (req, res) => {
-    if (req.body.password === APP_PASSWORD) {
-      res.cookie('abb_auth', 'authenticated', {
-        httpOnly: true,
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-        sameSite: 'lax',
-      });
-      res.json({ success: true });
-    } else {
-      res.status(401).json({ error: 'Wrong password' });
-    }
-  });
+  if (AUTH0_DOMAIN && AUTH0_CLIENT_ID && AUTH0_CLIENT_SECRET) {
+    // Auth0 SSO
+    const { auth, requiresAuth } = require('express-openid-connect');
 
-  // Check auth status
-  app.get('/api/auth/check', (req, res) => {
-    if (req.cookies?.abb_auth === 'authenticated') {
-      res.json({ authenticated: true });
-    } else {
-      res.status(401).json({ authenticated: false });
-    }
-  });
+    app.use(auth({
+      authRequired: false,
+      auth0Logout: true,
+      secret: AUTH0_CLIENT_SECRET,
+      baseURL: AUTH0_BASE_URL,
+      clientID: AUTH0_CLIENT_ID,
+      issuerBaseURL: `https://${AUTH0_DOMAIN}`,
+      routes: {
+        login: '/login',
+        logout: '/logout',
+        callback: '/callback',
+      },
+    }));
 
-  // Protect API routes (except auth)
-  app.use('/api', (req, res, next) => {
-    if (req.path.startsWith('/auth')) return next();
-    if (req.cookies?.abb_auth === 'authenticated') return next();
-    res.status(401).json({ error: 'Unauthorized' });
-  });
+    // Auth check endpoint
+    app.get('/api/auth/check', (req: any, res) => {
+      if (req.oidc?.isAuthenticated()) {
+        const user = req.oidc.user;
+        const email = user?.email || '';
+        const domain = email.split('@')[1] || '';
+
+        if (domain !== ALLOWED_DOMAIN) {
+          res.status(403).json({
+            authenticated: false,
+            error: `Access restricted to @${ALLOWED_DOMAIN} accounts`,
+          });
+          return;
+        }
+
+        res.json({
+          authenticated: true,
+          user: {
+            email: user.email,
+            name: user.name,
+            picture: user.picture,
+          },
+        });
+      } else {
+        res.status(401).json({ authenticated: false });
+      }
+    });
+
+    // Protect API routes
+    app.use('/api', (req: any, res, next) => {
+      if (req.path.startsWith('/auth')) return next();
+      if (!req.oidc?.isAuthenticated()) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      // Check domain
+      const email = req.oidc.user?.email || '';
+      const domain = email.split('@')[1] || '';
+      if (domain !== ALLOWED_DOMAIN) {
+        return res.status(403).json({ error: `Access restricted to @${ALLOWED_DOMAIN}` });
+      }
+      // Attach user info for logging
+      (req as any).userEmail = email;
+      (req as any).userName = req.oidc.user?.name || email;
+      next();
+    });
+
+    logger.info('Auth0 SSO configured', { domain: AUTH0_DOMAIN, allowedDomain: ALLOWED_DOMAIN });
+  } else {
+    // Fallback: simple password auth
+    const cookieParser = require('cookie-parser');
+    app.use(cookieParser());
+
+    const APP_PASSWORD = process.env.APP_PASSWORD || 'BOWSKY';
+
+    app.post('/api/auth/login', (req, res) => {
+      if (req.body.password === APP_PASSWORD) {
+        res.cookie('abb_auth', 'authenticated', {
+          httpOnly: true,
+          maxAge: 30 * 24 * 60 * 60 * 1000,
+          sameSite: 'lax',
+        });
+        res.json({ success: true });
+      } else {
+        res.status(401).json({ error: 'Wrong password' });
+      }
+    });
+
+    app.get('/api/auth/check', (req: any, res) => {
+      if (req.cookies?.abb_auth === 'authenticated') {
+        res.json({ authenticated: true, user: { email: 'local', name: 'Local User' } });
+      } else {
+        res.status(401).json({ authenticated: false });
+      }
+    });
+
+    app.use('/api', (req: any, res, next) => {
+      if (req.path.startsWith('/auth')) return next();
+      if (req.cookies?.abb_auth === 'authenticated') {
+        (req as any).userEmail = 'local';
+        (req as any).userName = 'Local User';
+        return next();
+      }
+      res.status(401).json({ error: 'Unauthorized' });
+    });
+
+    logger.info('Password auth configured (Auth0 not set up)');
+  }
 
   // API routes
   app.use('/api', createApiRouter(dataProvider));
@@ -85,10 +163,8 @@ async function main() {
   await initDiscord();
 
   if (config.discord.botToken) {
-    // Register button interaction handlers
     registerInteractions();
 
-    // Set up server structure if guild ID is configured but channels aren't
     if (config.discord.guildId && !config.discord.alertsChannelId) {
       const result = await setupDiscordServer(config.discord.guildId);
       if (result) {

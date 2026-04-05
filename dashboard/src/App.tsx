@@ -2,15 +2,21 @@ import { useState, useEffect } from 'react';
 import LoginPage from './pages/Login';
 import OverviewPage from './pages/Overview';
 import CampaignsPage from './pages/Campaigns';
+import OffersPage from './pages/Offers';
 import RulesPage from './pages/Rules';
 import RecommendationsPage from './pages/Recommendations';
 import HistoryPage from './pages/History';
 import SettingsPage from './pages/Settings';
-import OffersPage from './pages/Offers';
 import ReadmePage from './pages/Readme';
 import './App.css';
 
 type Page = 'overview' | 'campaigns' | 'offers' | 'rules' | 'recommendations' | 'history' | 'settings' | 'getting-started';
+
+interface UserInfo {
+  email: string;
+  name: string;
+  picture?: string;
+}
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'getting-started', label: 'Getting Started', icon: '📖' },
@@ -25,16 +31,48 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
 
 export default function App() {
   const [page, setPage] = useState<Page>('overview');
-  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated' | 'forbidden'>('loading');
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [useAuth0, setUseAuth0] = useState(false);
+  const [forbiddenMsg, setForbiddenMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/auth/check')
-      .then(r => setAuthenticated(r.ok))
-      .catch(() => setAuthenticated(false));
+      .then(async r => {
+        const data = await r.json();
+        if (r.ok && data.authenticated) {
+          setAuthState('authenticated');
+          setUser(data.user);
+        } else if (r.status === 403) {
+          setAuthState('forbidden');
+          setForbiddenMsg(data.error || 'Access denied');
+        } else {
+          setAuthState('unauthenticated');
+          // Check if Auth0 is configured by trying to detect redirect
+          setUseAuth0(!data.authenticated && r.status === 401 && !document.cookie.includes('abb_auth'));
+        }
+      })
+      .catch(() => setAuthState('unauthenticated'));
   }, []);
 
-  if (authenticated === null) return null; // Loading
-  if (!authenticated) return <LoginPage onLogin={() => setAuthenticated(true)} />;
+  if (authState === 'loading') return null;
+
+  if (authState === 'forbidden') {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <img src="/logo.png" alt="ABB" className="login-logo" />
+          <h1 className="login-title">Access Denied</h1>
+          <p className="login-subtitle">{forbiddenMsg}</p>
+          <a href="/logout" className="btn btn-secondary" style={{ display: 'inline-block', marginTop: 16 }}>Sign out</a>
+        </div>
+      </div>
+    );
+  }
+
+  if (authState !== 'authenticated') {
+    return <LoginPage onLogin={() => { setAuthState('authenticated'); setUser({ email: 'local', name: 'Local User' }); }} useAuth0={useAuth0} />;
+  }
 
   return (
     <div className="app">
@@ -55,8 +93,18 @@ export default function App() {
             </button>
           ))}
         </nav>
+        {user && (
+          <div className="sidebar-user">
+            {user.picture && <img src={user.picture} alt="" className="user-avatar" />}
+            <div className="user-info">
+              <div className="user-name">{user.name}</div>
+              <div className="user-email">{user.email}</div>
+            </div>
+          </div>
+        )}
         <div className="sidebar-footer">
-          <a href="https://app.adsbutbetter.com" className="text-secondary" style={{ fontSize: 11 }}>v0.1.0</a>
+          {user?.email !== 'local' && <a href="/logout" className="text-secondary" style={{ fontSize: 11, marginRight: 12 }}>Sign out</a>}
+          <span className="text-secondary" style={{ fontSize: 11 }}>v0.1.0</span>
         </div>
       </aside>
       <div className="content">
