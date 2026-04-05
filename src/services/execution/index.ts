@@ -8,11 +8,15 @@ export interface ExecutionResult {
   executedAt: string;
 }
 
-export async function executeAction(recommendation: Recommendation): Promise<ExecutionResult> {
-  const { action, entityId } = recommendation;
-  const actionParams = (typeof recommendation.actionParams === 'string'
-    ? JSON.parse(recommendation.actionParams)
-    : recommendation.actionParams) as Record<string, number>;
+export async function executeAction(recommendation: Recommendation | Record<string, any>): Promise<ExecutionResult> {
+  const rec = recommendation as any;
+  const action = rec.action;
+  const entityId = rec.entityId || rec.entity_id;
+  const actionParams = (typeof rec.actionParams === 'string'
+    ? JSON.parse(rec.actionParams)
+    : typeof rec.action_params === 'string'
+    ? JSON.parse(rec.action_params)
+    : rec.actionParams || rec.action_params || {}) as Record<string, number>;
 
   const campaign = campaignRepo.findById(entityId);
   if (!campaign) {
