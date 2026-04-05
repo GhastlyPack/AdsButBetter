@@ -45,13 +45,46 @@ export interface MetricsSnapshot {
   roas: number | null;
 }
 
+export interface Rule {
+  id: string;
+  name: string;
+  description: string;
+  enabled: number;
+  entity_level: string;
+  conditions: string; // JSON string from SQLite
+  action: string;
+  action_params: string;
+  priority: number;
+  cooldown_minutes: number;
+}
+
+export interface Recommendation {
+  id: string;
+  entity_id: string;
+  entity_level: string;
+  action: string;
+  action_params: string;
+  confidence: number;
+  reasoning: string;
+  triggered_rule_ids: string;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
 export const api = {
   getCampaigns: () => fetchJson<Campaign[]>('/campaigns'),
   getCampaignMetrics: (id: string, limit = 24) =>
     fetchJson<MetricsSnapshot[]>(`/campaigns/${id}/metrics?limit=${limit}`),
   getLatestMetrics: (id: string) =>
     fetchJson<MetricsSnapshot>(`/campaigns/${id}/metrics/latest`),
-  pollMetrics: () => postJson<{ polled: number; snapshots: MetricsSnapshot[] }>('/metrics/poll'),
+  pollMetrics: () => postJson<{ polled: number; evaluated: number; triggered: number; recommendations: string[] }>('/metrics/poll'),
   injectAnomaly: (campaignId: string, type: string, duration = 3) =>
     postJson('/test/anomaly', { campaignId, type, duration }),
+  getRules: () => fetchJson<Rule[]>('/rules'),
+  getRecommendations: (limit = 50) => fetchJson<Recommendation[]>(`/recommendations?limit=${limit}`),
+  getPendingRecommendations: () => fetchJson<Recommendation[]>('/recommendations/pending'),
+  approveRecommendation: (id: string) => postJson(`/recommendations/${id}/approve`),
+  denyRecommendation: (id: string) => postJson(`/recommendations/${id}/deny`),
 };

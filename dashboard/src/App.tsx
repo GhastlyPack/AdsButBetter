@@ -1,275 +1,50 @@
-import { useState, useEffect, useCallback } from 'react';
-import { api, Campaign, MetricsSnapshot } from './api';
+import { useState } from 'react';
+import CampaignsPage from './pages/Campaigns';
+import RulesPage from './pages/Rules';
+import RecommendationsPage from './pages/Recommendations';
 import './App.css';
 
-function formatNumber(n: number): string {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
-  return n.toString();
-}
+type Page = 'campaigns' | 'rules' | 'recommendations';
 
-function formatCurrency(n: number): string {
-  return '$' + n.toFixed(2);
-}
-
-function formatPercent(n: number): string {
-  return (n * 100).toFixed(2) + '%';
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const color = status === 'active' ? 'var(--green)' : status === 'paused' ? 'var(--orange)' : 'var(--text-secondary)';
-  return (
-    <span className="badge" style={{ background: color + '20', color, borderColor: color + '40' }}>
-      {status}
-    </span>
-  );
-}
-
-function MetricCard({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="metric-card">
-      <div className="metric-label">{label}</div>
-      <div className="metric-value" style={color ? { color } : undefined}>{value}</div>
-    </div>
-  );
-}
-
-function CampaignRow({
-  campaign,
-  metrics,
-  selected,
-  onClick,
-}: {
-  campaign: Campaign;
-  metrics: MetricsSnapshot | null;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <tr className={`campaign-row ${selected ? 'selected' : ''}`} onClick={onClick}>
-      <td>
-        <div className="campaign-name">{campaign.name}</div>
-        <div className="campaign-id">{campaign.id}</div>
-      </td>
-      <td><StatusBadge status={campaign.status} /></td>
-      <td>{formatCurrency(campaign.daily_budget)}</td>
-      <td>{metrics ? formatCurrency(metrics.spend) : '-'}</td>
-      <td>{metrics ? formatNumber(metrics.impressions) : '-'}</td>
-      <td>{metrics ? formatNumber(metrics.clicks) : '-'}</td>
-      <td>{metrics ? metrics.leads : '-'}</td>
-      <td>{metrics ? formatCurrency(metrics.cpc) : '-'}</td>
-      <td>{metrics ? formatPercent(metrics.ctr) : '-'}</td>
-      <td className={metrics && metrics.cpl > 75 ? 'text-red' : metrics && metrics.cpl < 30 ? 'text-green' : ''}>
-        {metrics ? formatCurrency(metrics.cpl) : '-'}
-      </td>
-    </tr>
-  );
-}
-
-function CampaignDetail({ campaign, metrics }: { campaign: Campaign; metrics: MetricsSnapshot[] }) {
-  if (metrics.length === 0) {
-    return <div className="detail-panel"><p className="text-secondary">No metrics data yet. Click "Poll Metrics" to generate data.</p></div>;
-  }
-
-  const latest = metrics[0];
-
-  return (
-    <div className="detail-panel">
-      <h3>{campaign.name}</h3>
-      <div className="metrics-grid">
-        <MetricCard label="Spend" value={formatCurrency(latest.spend)} />
-        <MetricCard label="Impressions" value={formatNumber(latest.impressions)} />
-        <MetricCard label="Clicks" value={formatNumber(latest.clicks)} />
-        <MetricCard label="Leads" value={latest.leads.toString()} />
-        <MetricCard label="CPC" value={formatCurrency(latest.cpc)} />
-        <MetricCard label="CTR" value={formatPercent(latest.ctr)} />
-        <MetricCard label="CPL" value={formatCurrency(latest.cpl)} color={latest.cpl > 75 ? 'var(--red)' : latest.cpl < 30 ? 'var(--green)' : undefined} />
-        <MetricCard label="Reg Rate" value={formatPercent(latest.registration_rate)} />
-        {latest.qualified_leads != null && (
-          <MetricCard label="Qualified Leads" value={latest.qualified_leads.toString()} color="var(--blue)" />
-        )}
-        {latest.cpql != null && (
-          <MetricCard label="CPQL" value={formatCurrency(latest.cpql)} />
-        )}
-      </div>
-
-      <h4>History ({metrics.length} snapshots)</h4>
-      <div className="history-table-wrap">
-        <table className="history-table">
-          <thead>
-            <tr>
-              <th>Time</th>
-              <th>Spend</th>
-              <th>Imp</th>
-              <th>Clicks</th>
-              <th>Leads</th>
-              <th>CPC</th>
-              <th>CTR</th>
-              <th>CPL</th>
-            </tr>
-          </thead>
-          <tbody>
-            {metrics.map(m => (
-              <tr key={m.id}>
-                <td>{new Date(m.timestamp).toLocaleTimeString()}</td>
-                <td>{formatCurrency(m.spend)}</td>
-                <td>{formatNumber(m.impressions)}</td>
-                <td>{formatNumber(m.clicks)}</td>
-                <td>{m.leads}</td>
-                <td>{formatCurrency(m.cpc)}</td>
-                <td>{formatPercent(m.ctr)}</td>
-                <td className={m.cpl > 75 ? 'text-red' : m.cpl < 30 ? 'text-green' : ''}>{formatCurrency(m.cpl)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
+const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
+  { key: 'campaigns', label: 'Campaigns', icon: '📊' },
+  { key: 'rules', label: 'Rules', icon: '⚙️' },
+  { key: 'recommendations', label: 'Actions', icon: '⚡' },
+];
 
 export default function App() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [latestMetrics, setLatestMetrics] = useState<Record<string, MetricsSnapshot>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [detailMetrics, setDetailMetrics] = useState<MetricsSnapshot[]>([]);
-  const [polling, setPolling] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadCampaigns = useCallback(async () => {
-    try {
-      const camps = await api.getCampaigns();
-      setCampaigns(camps);
-
-      // Fetch all latest metrics in parallel
-      const results = await Promise.allSettled(
-        camps.map(c => api.getLatestMetrics(c.id))
-      );
-      const metricsMap: Record<string, MetricsSnapshot> = {};
-      results.forEach((result, i) => {
-        if (result.status === 'fulfilled') {
-          metricsMap[camps[i].id] = result.value;
-        }
-      });
-      setLatestMetrics(metricsMap);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load campaigns. Is the backend running?');
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCampaigns();
-  }, [loadCampaigns]);
-
-  useEffect(() => {
-    if (!selectedId) return;
-    api.getCampaignMetrics(selectedId).then(setDetailMetrics).catch(() => setDetailMetrics([]));
-  }, [selectedId, latestMetrics]);
-
-  const handlePoll = async () => {
-    if (polling) return;
-    setPolling(true);
-    try {
-      await api.pollMetrics();
-      await loadCampaigns();
-    } catch (err) {
-      setError('Poll failed');
-    }
-    setPolling(false);
-  };
-
-  const handleAnomaly = async (type: string) => {
-    if (!selectedId || polling) return;
-    setPolling(true);
-    try {
-      await api.injectAnomaly(selectedId, type);
-      await api.pollMetrics();
-      await loadCampaigns();
-    } catch (err) {
-      setError('Anomaly injection failed');
-    }
-    setPolling(false);
-  };
-
-  const selectedCampaign = campaigns.find(c => c.id === selectedId);
+  const [page, setPage] = useState<Page>('campaigns');
 
   return (
     <div className="app">
-      <header className="header">
-        <div className="header-left">
-          <img src="/logo.png" alt="ABB" className="header-logo" />
-          <h1>AdsButBetter</h1>
-          <span className="header-subtitle">Ad Operations Dashboard</span>
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <img src="/logo.png" alt="ABB" className="sidebar-logo" />
+          <span className="sidebar-title">ABB</span>
         </div>
-        <div className="header-right">
-          <button className="btn btn-primary" onClick={handlePoll} disabled={polling}>
-            {polling ? 'Polling...' : 'Poll Metrics'}
-          </button>
-        </div>
-      </header>
-
-      {error && <div className="error-bar">{error}</div>}
-
-      <div className="instructions">
-        <div className="instructions-content">
-          <strong>How to use:</strong> Click <em>Poll Metrics</em> to generate a new metrics snapshot for all campaigns. Click a campaign row to see detailed metrics and history. Use the anomaly buttons to simulate performance issues and test the rule engine.
-        </div>
+        <nav className="sidebar-nav">
+          {NAV_ITEMS.map(item => (
+            <button
+              key={item.key}
+              className={`nav-item ${page === item.key ? 'active' : ''}`}
+              onClick={() => setPage(item.key)}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span className="nav-label">{item.label}</span>
+            </button>
+          ))}
+        </nav>
+      </aside>
+      <div className="content">
+        <header className="header">
+          <h1>{NAV_ITEMS.find(n => n.key === page)?.label}</h1>
+        </header>
+        <main className="main">
+          {page === 'campaigns' && <CampaignsPage />}
+          {page === 'rules' && <RulesPage />}
+          {page === 'recommendations' && <RecommendationsPage />}
+        </main>
       </div>
-
-      <main className="main">
-        <section className="campaigns-section">
-          <div className="section-header">
-            <h2>Campaigns</h2>
-            <span className="text-secondary">{campaigns.length} total</span>
-          </div>
-          <div className="table-wrap">
-            <table className="campaigns-table">
-              <thead>
-                <tr>
-                  <th>Campaign</th>
-                  <th>Status</th>
-                  <th>Budget</th>
-                  <th>Spend</th>
-                  <th>Impressions</th>
-                  <th>Clicks</th>
-                  <th>Leads</th>
-                  <th>CPC</th>
-                  <th>CTR</th>
-                  <th>CPL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.map(c => (
-                  <CampaignRow
-                    key={c.id}
-                    campaign={c}
-                    metrics={latestMetrics[c.id] || null}
-                    selected={selectedId === c.id}
-                    onClick={() => setSelectedId(c.id === selectedId ? null : c.id)}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        {selectedCampaign && (
-          <section className="detail-section">
-            <div className="section-header">
-              <h2>Campaign Detail</h2>
-              <div className="anomaly-controls">
-                <span className="text-secondary">Inject Anomaly:</span>
-                <button className="btn btn-sm btn-danger" onClick={() => handleAnomaly('spike_cpl')} disabled={polling}>Spike CPL</button>
-                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('zero_leads')} disabled={polling}>Zero Leads</button>
-                <button className="btn btn-sm btn-secondary" onClick={() => handleAnomaly('zero_impressions')} disabled={polling}>Zero Impr</button>
-                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('budget_blowout')} disabled={polling}>Budget Blowout</button>
-              </div>
-            </div>
-            <CampaignDetail campaign={selectedCampaign} metrics={detailMetrics} />
-          </section>
-        )}
-      </main>
     </div>
   );
 }

@@ -2,8 +2,10 @@ import { Router } from 'express';
 import { campaignRepo } from '../db/repositories/campaign.repo';
 import { metricsRepo } from '../db/repositories/metrics.repo';
 import { ruleRepo } from '../db/repositories/rule.repo';
+import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { decisionLogRepo } from '../db/repositories/decision-log.repo';
 import { MockDataProvider } from '../services/data-ingestion/mock-provider';
+import { runEvaluation } from '../scheduler';
 
 export function createApiRouter(dataProvider: MockDataProvider): Router {
   const router = Router();
@@ -33,19 +35,52 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     res.json(latest);
   });
 
-  // Snapshot all metrics now (trigger a poll)
+  // Poll metrics + evaluate rules in one action
   router.post('/metrics/poll', async (_req, res) => {
     const snapshots = await dataProvider.fetchAllMetrics();
     for (const snapshot of snapshots) {
       metricsRepo.insert(snapshot);
     }
-    res.json({ polled: snapshots.length, snapshots });
+    const evalResult = runEvaluation();
+    res.json({ polled: snapshots.length, ...evalResult });
   });
 
   // Rules
   router.get('/rules', (_req, res) => {
     const rules = ruleRepo.findAll();
     res.json(rules);
+  });
+
+  // Evaluate rules manually
+  router.post('/rules/evaluate', (_req, res) => {
+    const result = runEvaluation();
+    res.json(result);
+  });
+
+  // Recommendations
+  router.get('/recommendations', (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const recommendations = recommendationRepo.findRecent(limit);
+    res.json(recommendations);
+  });
+
+  router.get('/recommendations/pending', (_req, res) => {
+    const pending = recommendationRepo.findPending();
+    res.json(pending);
+  });
+
+  router.post('/recommendations/:id/approve', (req, res) => {
+    const rec = recommendationRepo.findById(req.params.id);
+    if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
+    recommendationRepo.updateStatus(req.params.id, 'approved', 'dashboard');
+    res.json({ status: 'approved' });
+  });
+
+  router.post('/recommendations/:id/deny', (req, res) => {
+    const rec = recommendationRepo.findById(req.params.id);
+    if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
+    recommendationRepo.updateStatus(req.params.id, 'denied', 'dashboard');
+    res.json({ status: 'denied' });
   });
 
   // Decision logs

@@ -6,6 +6,7 @@ import { initDb, closeDb } from './db';
 import { initDiscord, shutdownDiscord } from './discord/bot';
 import { startScheduler } from './scheduler';
 import { seedMockCampaigns } from './services/data-ingestion/seed';
+import { seedDefaultRules } from './services/rule-engine/seed';
 import { MockDataProvider } from './services/data-ingestion/mock-provider';
 import { createApiRouter } from './api';
 import { logger } from './utils/logger';
@@ -16,8 +17,9 @@ async function main() {
   // Initialize database
   initDb();
 
-  // Seed mock campaigns
+  // Seed mock campaigns and rules
   seedMockCampaigns();
+  seedDefaultRules();
 
   // Initialize data provider
   const dataProvider = new MockDataProvider();
