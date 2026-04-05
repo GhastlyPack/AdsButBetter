@@ -9,6 +9,7 @@ import { generateRecommendation } from '../services/recommendation';
 import { Recommendation } from '../models';
 import { randomUUID } from 'crypto';
 import { sendRecommendationAlert, sendLogMessage, deleteMessages } from '../discord/alerts';
+import { isSystemEnabled } from '../api';
 import { logger } from '../utils/logger';
 
 async function sendDiscordAlert(rec: Recommendation): Promise<void> {
@@ -118,6 +119,7 @@ export function startScheduler(dataProvider: DataProvider): void {
 
   // Poll metrics
   cron.schedule(`*/${metricsPollingIntervalMinutes} * * * *`, async () => {
+    if (!isSystemEnabled()) { logger.debug('System disabled, skipping poll'); return; }
     try {
       logger.info('Job: polling metrics');
       const snapshots = await dataProvider.fetchAllMetrics();
@@ -132,6 +134,7 @@ export function startScheduler(dataProvider: DataProvider): void {
 
   // Evaluate rules
   cron.schedule(`*/${ruleEvaluationIntervalMinutes} * * * *`, async () => {
+    if (!isSystemEnabled()) { logger.debug('System disabled, skipping evaluation'); return; }
     try {
       logger.info('Job: evaluating rules');
       const result = await runEvaluation();

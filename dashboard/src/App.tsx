@@ -4,9 +4,10 @@ import CampaignsPage from './pages/Campaigns';
 import RulesPage from './pages/Rules';
 import RecommendationsPage from './pages/Recommendations';
 import HistoryPage from './pages/History';
+import SettingsPage from './pages/Settings';
 import './App.css';
 
-type Page = 'overview' | 'campaigns' | 'rules' | 'recommendations' | 'history';
+type Page = 'overview' | 'campaigns' | 'rules' | 'recommendations' | 'history' | 'settings';
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'overview', label: 'Overview', icon: '🏠' },
@@ -14,6 +15,7 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'rules', label: 'Rules', icon: '⚙️' },
   { key: 'recommendations', label: 'Actions', icon: '⚡' },
   { key: 'history', label: 'History', icon: '📋' },
+  { key: 'settings', label: 'Settings', icon: '🔧' },
 ];
 
 export default function App() {
@@ -52,6 +54,7 @@ export default function App() {
           {page === 'rules' && <RulesPage />}
           {page === 'recommendations' && <RecommendationsPage />}
           {page === 'history' && <HistoryPage />}
+          {page === 'settings' && <SettingsPage />}
         </main>
       </div>
     </div>

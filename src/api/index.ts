@@ -9,8 +9,26 @@ import { getDb } from '../db';
 import { MockDataProvider } from '../services/data-ingestion/mock-provider';
 import { runEvaluation } from '../scheduler';
 
+let systemEnabled = true;
+
+export function isSystemEnabled(): boolean {
+  return systemEnabled;
+}
+
 export function createApiRouter(dataProvider: MockDataProvider): Router {
   const router = Router();
+
+  // System on/off
+  router.get('/settings', (_req, res) => {
+    res.json({ enabled: systemEnabled });
+  });
+
+  router.post('/settings', (req, res) => {
+    if (typeof req.body.enabled === 'boolean') {
+      systemEnabled = req.body.enabled;
+    }
+    res.json({ enabled: systemEnabled });
+  });
 
   // Overview stats
   router.get('/overview', (_req, res) => {

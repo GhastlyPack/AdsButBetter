@@ -520,3 +520,58 @@ td {
   color: white;
   font-weight: 500;
 }
+
+/* Toggle switch */
+.toggle-btn {
+  position: relative;
+  width: 64px;
+  height: 32px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.toggle-btn.on {
+  background: var(--green);
+}
+
+.toggle-btn.off {
+  background: var(--border);
+}
+
+.toggle-knob {
+  position: absolute;
+  top: 3px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: white;
+  transition: left 0.2s;
+}
+
+.toggle-btn.on .toggle-knob {
+  left: 35px;
+}
+
+.toggle-btn.off .toggle-knob {
+  left: 3px;
+}
+
+.toggle-label {
+  position: absolute;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.toggle-btn.on .toggle-label {
+  left: 8px;
+}
+
+.toggle-btn.off .toggle-label {
+  right: 8px;
+}
