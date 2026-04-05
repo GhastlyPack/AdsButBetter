@@ -32,6 +32,12 @@ export const recommendationRepo = {
     ).get(id) as Recommendation | undefined;
   },
 
+  updateDiscordMessageId(id: string, messageId: string): void {
+    getDb().prepare(
+      'UPDATE recommendations SET discord_message_id = ? WHERE id = ?'
+    ).run(messageId, id);
+  },
+
   updateStatus(id: string, status: string, resolvedBy?: string): void {
     getDb().prepare(
       "UPDATE recommendations SET status = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?"

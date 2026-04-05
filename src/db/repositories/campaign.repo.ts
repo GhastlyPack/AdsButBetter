@@ -48,14 +48,14 @@ export const campaignRepo = {
   },
 
   updateStatus(id: string, status: string): void {
-    getDb().prepare('UPDATE campaigns SET status = ?, updated_at = datetime('now') WHERE id = ?').run(status, id);
+    getDb().prepare(`UPDATE campaigns SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(status, id);
   },
 
   updateBudget(id: string, dailyBudget: number): void {
-    getDb().prepare('UPDATE campaigns SET daily_budget = ?, updated_at = datetime('now') WHERE id = ?').run(dailyBudget, id);
+    getDb().prepare(`UPDATE campaigns SET daily_budget = ?, updated_at = datetime('now') WHERE id = ?`).run(dailyBudget, id);
   },
 
   updateAdReviewStatus(id: string, adReviewStatus: string): void {
-    getDb().prepare('UPDATE campaigns SET ad_review_status = ?, updated_at = datetime('now') WHERE id = ?').run(adReviewStatus, id);
+    getDb().prepare(`UPDATE campaigns SET ad_review_status = ?, updated_at = datetime('now') WHERE id = ?`).run(adReviewStatus, id);
   },
 };

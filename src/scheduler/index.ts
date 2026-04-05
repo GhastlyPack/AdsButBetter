@@ -8,18 +8,32 @@ import { evaluateRules } from '../services/rule-engine';
 import { generateRecommendation } from '../services/recommendation';
 import { Recommendation } from '../models';
 import { randomUUID } from 'crypto';
+import { sendRecommendationAlert, sendLogMessage } from '../discord/alerts';
 import { logger } from '../utils/logger';
 
-export function runEvaluation(): { evaluated: number; triggered: number; recommendations: string[] } {
+async function sendDiscordAlert(rec: Recommendation): Promise<void> {
+  if (!config.discord.botToken || !config.discord.alertsChannelId) return;
+  try {
+    const messageId = await sendRecommendationAlert(rec);
+    if (messageId) {
+      recommendationRepo.updateDiscordMessageId(rec.id, messageId);
+    }
+  } catch (err) {
+    logger.error('Failed to send Discord alert', { error: String(err) });
+  }
+}
+
+export async function runEvaluation(): Promise<{ evaluated: number; triggered: number; recommendations: string[] }> {
   const rules = ruleRepo.findEnabled();
-  const campaigns = require('../db/repositories/campaign.repo').campaignRepo.findAll();
+  const { campaignRepo } = require('../db/repositories/campaign.repo');
+  const campaigns = campaignRepo.findAll();
 
   let totalTriggered = 0;
   const newRecommendations: string[] = [];
 
   for (const campaign of campaigns) {
     // Check for Meta ad decline — highest priority system check
-    if (campaign.ad_review_status === 'declined' || campaign.adReviewStatus === 'declined') {
+    if (campaign.adReviewStatus === 'declined') {
       const recent = recommendationRepo.findRecentForEntity(campaign.id, 'system-ad-declined', 60);
       if (!recent) {
         const rec: Recommendation = {
@@ -40,6 +54,7 @@ export function runEvaluation(): { evaluated: number; triggered: number; recomme
         recommendationRepo.insert(rec);
         newRecommendations.push(rec.id);
         totalTriggered++;
+        await sendDiscordAlert(rec);
         logger.warn('Ad declined by Meta', { entityId: campaign.id, name: campaign.name });
       }
       continue;
@@ -53,7 +68,6 @@ export function runEvaluation(): { evaluated: number; triggered: number; recomme
     const triggered = evaluateRules(latestMetrics, rules);
 
     for (const t of triggered) {
-      // Check cooldown — skip if a recommendation for this rule+entity was made recently
       const recent = recommendationRepo.findRecentForEntity(
         t.entityId,
         t.rule.id,
@@ -68,6 +82,7 @@ export function runEvaluation(): { evaluated: number; triggered: number; recomme
       recommendationRepo.insert(recommendation);
       newRecommendations.push(recommendation.id);
       totalTriggered++;
+      await sendDiscordAlert(recommendation);
 
       logger.info('Recommendation created', {
         id: recommendation.id,
@@ -77,6 +92,15 @@ export function runEvaluation(): { evaluated: number; triggered: number; recomme
         rule: t.rule.name,
       });
     }
+  }
+
+  // Send summary to logs channel
+  if (totalTriggered > 0) {
+    await sendLogMessage(
+      'Rule Evaluation',
+      `Evaluated ${campaigns.length} campaigns. **${totalTriggered}** rules triggered, ${newRecommendations.length} recommendations created.`,
+      0x3bb8e8
+    ).catch(() => {});
   }
 
   return { evaluated: campaigns.length, triggered: totalTriggered, recommendations: newRecommendations };
@@ -100,10 +124,10 @@ export function startScheduler(dataProvider: DataProvider): void {
   });
 
   // Evaluate rules
-  cron.schedule(`*/${ruleEvaluationIntervalMinutes} * * * *`, () => {
+  cron.schedule(`*/${ruleEvaluationIntervalMinutes} * * * *`, async () => {
     try {
       logger.info('Job: evaluating rules');
-      const result = runEvaluation();
+      const result = await runEvaluation();
       logger.info('Rule evaluation complete', result);
     } catch (err) {
       logger.error('Rule evaluation failed', { error: String(err) });

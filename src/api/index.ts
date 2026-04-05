@@ -38,7 +38,7 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
   });
 
   // Manually insert a custom metrics snapshot + evaluate rules
-  router.post('/metrics/manual', (req, res) => {
+  router.post('/metrics/manual', async (req, res) => {
     const { entityId, spend, impressions, clicks, leads } = req.body;
     if (!entityId) return res.status(400).json({ error: 'entityId required' });
 
@@ -72,7 +72,7 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     };
 
     metricsRepo.insert(snapshot);
-    const evalResult = runEvaluation();
+    const evalResult = await runEvaluation();
     res.json({ snapshot, ...evalResult });
   });
 
@@ -82,7 +82,7 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     for (const snapshot of snapshots) {
       metricsRepo.insert(snapshot);
     }
-    const evalResult = runEvaluation();
+    const evalResult = await runEvaluation();
     res.json({ polled: snapshots.length, ...evalResult });
   });
 
@@ -122,8 +122,8 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
   });
 
   // Evaluate rules manually
-  router.post('/rules/evaluate', (_req, res) => {
-    const result = runEvaluation();
+  router.post('/rules/evaluate', async (_req, res) => {
+    const result = await runEvaluation();
     res.json(result);
   });
 

@@ -8,7 +8,10 @@ export const config = {
 
   discord: {
     botToken: process.env.DISCORD_BOT_TOKEN || '',
-    channelId: process.env.DISCORD_CHANNEL_ID || '',
+    guildId: process.env.DISCORD_GUILD_ID || '',
+    alertsChannelId: process.env.DISCORD_ALERTS_CHANNEL_ID || '',
+    logsChannelId: process.env.DISCORD_LOGS_CHANNEL_ID || '',
+    managerRoleId: process.env.DISCORD_MANAGER_ROLE_ID || '',
   },
 
   scheduler: {

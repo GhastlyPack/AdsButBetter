@@ -4,6 +4,8 @@ import path from 'path';
 import { config } from './config';
 import { initDb, closeDb } from './db';
 import { initDiscord, shutdownDiscord } from './discord/bot';
+import { registerInteractions } from './discord/interactions';
+import { setupDiscordServer } from './discord/setup';
 import { startScheduler } from './scheduler';
 import { seedMockCampaigns } from './services/data-ingestion/seed';
 import { seedDefaultRules } from './services/rule-engine/seed';
@@ -46,6 +48,19 @@ async function main() {
 
   // Initialize Discord bot
   await initDiscord();
+
+  if (config.discord.botToken) {
+    // Register button interaction handlers
+    registerInteractions();
+
+    // Set up server structure if guild ID is configured but channels aren't
+    if (config.discord.guildId && !config.discord.alertsChannelId) {
+      const result = await setupDiscordServer(config.discord.guildId);
+      if (result) {
+        logger.info('Discord setup complete — add these to your .env:', { ...result });
+      }
+    }
+  }
 
   // Start scheduled jobs
   startScheduler(dataProvider);
