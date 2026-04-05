@@ -33,6 +33,7 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
 
 export default function App() {
   const [page, setPage] = useState<Page>('overview');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated' | 'forbidden'>('loading');
   const [user, setUser] = useState<UserInfo | null>(null);
   const [useAuth0, setUseAuth0] = useState(false);
@@ -78,7 +79,8 @@ export default function App() {
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-brand">
           <img src="/logo.png" alt="ABB" className="sidebar-logo" />
           <span className="sidebar-title">AdsButBetter</span>
@@ -88,7 +90,7 @@ export default function App() {
             <button
               key={item.key}
               className={`nav-item ${page === item.key ? 'active' : ''}`}
-              onClick={() => setPage(item.key)}
+              onClick={() => { setPage(item.key); setSidebarOpen(false); }}
             >
               <span className="nav-icon">{item.icon}</span>
               <span className="nav-label">{item.label}</span>
@@ -111,6 +113,9 @@ export default function App() {
       </aside>
       <div className="content">
         <header className="header">
+          <button className="menu-btn" onClick={() => setSidebarOpen(!sidebarOpen)}>
+            <span className="menu-icon">{sidebarOpen ? '✕' : '☰'}</span>
+          </button>
           <h1>{NAV_ITEMS.find(n => n.key === page)?.label}</h1>
         </header>
         <main className="main">

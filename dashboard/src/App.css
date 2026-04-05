@@ -855,3 +855,185 @@ td {
 .chat-input:disabled {
   opacity: 0.5;
 }
+
+/* Mobile hamburger button */
+.menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px 8px;
+  margin-right: 8px;
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .menu-btn {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    top: 0;
+    bottom: 0;
+    width: 240px;
+    z-index: 1000;
+    transition: left 0.2s ease;
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
+  .content {
+    width: 100%;
+  }
+
+  .header h1 {
+    font-size: 16px;
+  }
+
+  .main {
+    padding: 16px;
+  }
+
+  /* Overview stats */
+  .stats-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+  }
+
+  .stat-card {
+    padding: 14px;
+  }
+
+  /* Tables scroll horizontally */
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  /* Metrics grid */
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .metric-value {
+    font-size: 16px;
+  }
+
+  /* Section headers stack */
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  /* Anomaly controls wrap */
+  .anomaly-controls {
+    flex-wrap: wrap;
+  }
+
+  /* Filter tabs scroll */
+  .filter-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Cards */
+  .card {
+    padding: 14px;
+  }
+
+  /* Rule cards */
+  .rule-card {
+    padding: 12px;
+  }
+
+  /* Recommendation cards */
+  .rec-card {
+    padding: 12px;
+  }
+
+  .rec-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Overview two-column layout stacks */
+  .stats-row + div {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chat */
+  .chat-container {
+    height: calc(100vh - 70px);
+  }
+
+  .chat-suggestions {
+    flex-direction: column;
+  }
+
+  .chat-input-area {
+    flex-wrap: wrap;
+  }
+
+  /* Settings */
+  .source-btn {
+    padding: 12px;
+  }
+
+  /* Login */
+  .login-card {
+    width: 90%;
+    max-width: 360px;
+    padding: 30px;
+  }
+
+  /* Sidebar user */
+  .sidebar-user {
+    padding: 10px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-row {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header {
+    padding: 12px 16px;
+  }
+
+  .main {
+    padding: 12px;
+  }
+}

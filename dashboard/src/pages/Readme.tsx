@@ -13,6 +13,9 @@ export default function ReadmePage() {
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: 14 }}>
           AdsButBetter is an AI-powered ad operations agent built for lead generation. It monitors Meta Ads campaigns in near real-time, evaluates performance against configurable rules, and uses Claude AI to generate intelligent recommendations — all managed through this dashboard and Discord.
         </p>
+        <a href="https://discord.gg/5DE4gZnhNE" target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          Join the Discord
+        </a>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
