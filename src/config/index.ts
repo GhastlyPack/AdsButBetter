@@ -30,4 +30,7 @@ export const config = {
 export const runtimeSettings = {
   metricsPollingIntervalMinutes: config.scheduler.metricsPollingIntervalMinutes,
   ruleEvaluationIntervalMinutes: config.scheduler.ruleEvaluationIntervalMinutes,
+  dataSource: (process.env.DATA_SOURCE || 'mock') as 'mock' | 'meta',
+  metaAccessToken: process.env.META_ACCESS_TOKEN || '',
+  metaAdAccountId: process.env.META_AD_ACCOUNT_ID || '',
 };

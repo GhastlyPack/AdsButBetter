@@ -6,6 +6,9 @@ interface SettingsData {
   enabled: boolean;
   metricsPollingIntervalMinutes: number;
   ruleEvaluationIntervalMinutes: number;
+  dataSource: 'mock' | 'meta';
+  metaAdAccountId: string;
+  metaConnected: boolean;
 }
 
 export default function SettingsPage() {
@@ -13,15 +16,21 @@ export default function SettingsPage() {
     enabled: true,
     metricsPollingIntervalMinutes: 5,
     ruleEvaluationIntervalMinutes: 5,
+    dataSource: 'mock',
+    metaAdAccountId: '',
+    metaConnected: false,
   });
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [metaToken, setMetaToken] = useState('');
+  const [metaAccountId, setMetaAccountId] = useState('');
+  const [testResult, setTestResult] = useState<{ success: boolean; campaigns?: number; error?: string } | null>(null);
 
   useEffect(() => {
     fetch(`${BASE}/settings`).then(r => r.json()).then(setSettings).catch(() => {});
   }, []);
 
-  const update = async (changes: Partial<SettingsData>) => {
+  const update = async (changes: Record<string, any>) => {
     setLoading(true);
     setSaved(false);
     try {
@@ -38,6 +47,19 @@ export default function SettingsPage() {
     setLoading(false);
   };
 
+  const testMeta = async () => {
+    setLoading(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`${BASE}/settings/test-meta`, { method: 'POST' });
+      const data = await res.json();
+      setTestResult(data);
+    } catch (err) {
+      setTestResult({ success: false, error: String(err) });
+    }
+    setLoading(false);
+  };
+
   return (
     <div>
       <div className="section-header">
@@ -45,12 +67,13 @@ export default function SettingsPage() {
         {saved && <span style={{ color: 'var(--green)', fontSize: 13 }}>Saved</span>}
       </div>
 
+      {/* System Toggle */}
       <div className="card" style={{ maxWidth: 560 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>System On/Off</div>
             <div className="text-secondary" style={{ fontSize: 13 }}>
-              When off, the scheduler will not poll metrics or evaluate rules automatically. No Discord alerts will be sent. Manual polling from the dashboard still works.
+              When off, the scheduler stops automatic polling and evaluation. Manual actions still work.
             </div>
           </div>
           <button
@@ -64,6 +87,103 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Data Source */}
+      <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Data Source</div>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            className={`source-btn ${settings.dataSource === 'mock' ? 'active' : ''}`}
+            onClick={() => update({ dataSource: 'mock' })}
+            disabled={loading}
+          >
+            <div className="source-btn-title">Mock Data</div>
+            <div className="source-btn-desc">Simulated campaigns for testing</div>
+          </button>
+          <button
+            className={`source-btn ${settings.dataSource === 'meta' ? 'active' : ''}`}
+            onClick={() => settings.metaConnected ? update({ dataSource: 'meta' }) : null}
+            disabled={loading || !settings.metaConnected}
+          >
+            <div className="source-btn-title">Meta Ads</div>
+            <div className="source-btn-desc">{settings.metaConnected ? 'Connected' : 'Not configured'}</div>
+          </button>
+        </div>
+      </div>
+
+      {/* Meta Configuration */}
+      <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Meta Ads Connection</div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={labelStyle}>Ad Account ID</label>
+            <input
+              type="text"
+              value={metaAccountId}
+              onChange={e => setMetaAccountId(e.target.value)}
+              placeholder="e.g. 123456789"
+              style={{ ...inputStyle, width: '100%' }}
+            />
+            <div className="text-secondary" style={{ fontSize: 11, marginTop: 4 }}>
+              Found in Meta Business Manager under Ad Accounts. Don't include "act_" prefix.
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Access Token</label>
+            <input
+              type="password"
+              value={metaToken}
+              onChange={e => setMetaToken(e.target.value)}
+              placeholder="Your Meta access token"
+              style={{ ...inputStyle, width: '100%' }}
+            />
+            <div className="text-secondary" style={{ fontSize: 11, marginTop: 4 }}>
+              Generate from Meta Graph API Explorer or your Meta App.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => update({ metaAccessToken: metaToken, metaAdAccountId: metaAccountId })}
+              disabled={loading || !metaToken || !metaAccountId}
+            >
+              Save Credentials
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={testMeta}
+              disabled={loading}
+            >
+              Test Connection
+            </button>
+          </div>
+
+          {testResult && (
+            <div style={{
+              padding: 12,
+              borderRadius: 6,
+              background: testResult.success ? 'var(--green)15' : 'var(--red)15',
+              border: `1px solid ${testResult.success ? 'var(--green)' : 'var(--red)'}40`,
+              fontSize: 13,
+            }}>
+              {testResult.success
+                ? <span style={{ color: 'var(--green)' }}>Connected! Found {testResult.campaigns} campaigns.</span>
+                : <span style={{ color: 'var(--red)' }}>Connection failed: {testResult.error}</span>
+              }
+            </div>
+          )}
+
+          {settings.metaConnected && (
+            <div className="text-secondary" style={{ fontSize: 13 }}>
+              Currently connected. Account: {settings.metaAdAccountId}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Scheduler */}
       <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
         <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 16 }}>Scheduler Intervals</div>
 
@@ -79,7 +199,7 @@ export default function SettingsPage() {
                 onChange={e => setSettings({ ...settings, metricsPollingIntervalMinutes: Number(e.target.value) })}
                 style={inputStyle}
               />
-              <span className="text-secondary" style={{ fontSize: 13 }}>How often to pull new metrics data</span>
+              <span className="text-secondary" style={{ fontSize: 13 }}>How often to pull new metrics</span>
             </div>
           </div>
 
@@ -94,7 +214,7 @@ export default function SettingsPage() {
                 onChange={e => setSettings({ ...settings, ruleEvaluationIntervalMinutes: Number(e.target.value) })}
                 style={inputStyle}
               />
-              <span className="text-secondary" style={{ fontSize: 13 }}>How often to check rules against metrics</span>
+              <span className="text-secondary" style={{ fontSize: 13 }}>How often to check rules</span>
             </div>
           </div>
 
@@ -112,6 +232,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Status */}
       <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
         <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Status</div>
         <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.8 }}>
@@ -119,6 +240,7 @@ export default function SettingsPage() {
             ? <span style={{ color: 'var(--green)', fontWeight: 500 }}>Running</span>
             : <span style={{ color: 'var(--red)', fontWeight: 500 }}>Paused</span>
           }<br />
+          Data source: <strong style={{ color: 'var(--text-primary)' }}>{settings.dataSource === 'meta' ? 'Meta Ads (Live)' : 'Mock Data'}</strong><br />
           Metrics polling: every <strong style={{ color: 'var(--text-primary)' }}>{settings.metricsPollingIntervalMinutes} min</strong><br />
           Rule evaluation: every <strong style={{ color: 'var(--text-primary)' }}>{settings.ruleEvaluationIntervalMinutes} min</strong>
         </div>

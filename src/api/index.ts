@@ -6,7 +6,7 @@ import { ruleRepo } from '../db/repositories/rule.repo';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { decisionLogRepo } from '../db/repositories/decision-log.repo';
 import { getDb } from '../db';
-import { MockDataProvider } from '../services/data-ingestion/mock-provider';
+import { SwitchableDataProvider } from '../services/data-ingestion/switchable-provider';
 import { runEvaluation, restartScheduler } from '../scheduler';
 import { runtimeSettings } from '../config';
 
@@ -16,7 +16,7 @@ export function isSystemEnabled(): boolean {
   return systemEnabled;
 }
 
-export function createApiRouter(dataProvider: MockDataProvider): Router {
+export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
   const router = Router();
 
   // System settings
@@ -25,6 +25,9 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
       enabled: systemEnabled,
       metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
       ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
+      dataSource: dataProvider.getSource(),
+      metaAdAccountId: runtimeSettings.metaAdAccountId ? `***${runtimeSettings.metaAdAccountId.slice(-4)}` : '',
+      metaConnected: !!(runtimeSettings.metaAccessToken && runtimeSettings.metaAdAccountId),
     });
   });
 
@@ -42,6 +45,15 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
       runtimeSettings.ruleEvaluationIntervalMinutes = req.body.ruleEvaluationIntervalMinutes;
       schedulerChanged = true;
     }
+    if (req.body.dataSource === 'mock' || req.body.dataSource === 'meta') {
+      dataProvider.setSource(req.body.dataSource);
+    }
+    if (req.body.metaAccessToken) {
+      dataProvider.updateMetaConfig(req.body.metaAccessToken, req.body.metaAdAccountId);
+    }
+    if (req.body.metaAdAccountId && !req.body.metaAccessToken) {
+      dataProvider.updateMetaConfig(undefined, req.body.metaAdAccountId);
+    }
 
     if (schedulerChanged) {
       restartScheduler();
@@ -51,7 +63,20 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
       enabled: systemEnabled,
       metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
       ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
+      dataSource: dataProvider.getSource(),
+      metaAdAccountId: runtimeSettings.metaAdAccountId ? `***${runtimeSettings.metaAdAccountId.slice(-4)}` : '',
+      metaConnected: !!(runtimeSettings.metaAccessToken && runtimeSettings.metaAdAccountId),
     });
+  });
+
+  // Test Meta connection
+  router.post('/settings/test-meta', async (_req, res) => {
+    try {
+      const campaigns = await dataProvider.meta.fetchCampaigns();
+      res.json({ success: true, campaigns: campaigns.length, data: campaigns });
+    } catch (err) {
+      res.json({ success: false, error: String(err) });
+    }
   });
 
   // Overview stats
@@ -274,7 +299,7 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     if (!campaignId || !type) {
       return res.status(400).json({ error: 'campaignId and type required' });
     }
-    dataProvider.injectAnomaly(campaignId, type, duration || 3);
+    dataProvider.mock.injectAnomaly(campaignId, type, duration || 3);
     res.json({ injected: { campaignId, type, duration: duration || 3 } });
   });
 

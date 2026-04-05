@@ -9,7 +9,7 @@ import { setupDiscordServer } from './discord/setup';
 import { startScheduler } from './scheduler';
 import { seedMockCampaigns } from './services/data-ingestion/seed';
 import { seedDefaultRules } from './services/rule-engine/seed';
-import { MockDataProvider } from './services/data-ingestion/mock-provider';
+import { SwitchableDataProvider } from './services/data-ingestion/switchable-provider';
 import { createApiRouter } from './api';
 import { logger } from './utils/logger';
 
@@ -23,8 +23,8 @@ async function main() {
   seedMockCampaigns();
   seedDefaultRules();
 
-  // Initialize data provider
-  const dataProvider = new MockDataProvider();
+  // Initialize data provider (switchable between mock and Meta)
+  const dataProvider = new SwitchableDataProvider();
 
   // Set up Express
   const app = express();
