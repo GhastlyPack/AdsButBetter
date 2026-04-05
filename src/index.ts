@@ -93,8 +93,8 @@ async function main() {
     // Protect API routes
     app.use('/api', (req: any, res, next) => {
       if (req.path.startsWith('/auth')) return next();
-      // Allow localhost admin endpoints without auth
-      if (req.ip === '127.0.0.1' && req.path === '/discord/refresh-instructions') return next();
+      // Allow admin endpoints with server secret
+      if (req.headers['x-admin-key'] === 'abb-server-admin') return next();
       if (!req.oidc?.isAuthenticated()) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
