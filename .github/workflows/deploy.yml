@@ -17,6 +17,7 @@ jobs:
           script: |
             cd /opt/adsbutbetter
             git pull origin main
-            npm ci --omit=dev
-            npm run build
+            npm ci
+            npx tsc
+            npm prune --omit=dev
             sudo systemctl restart adsbutbetter
