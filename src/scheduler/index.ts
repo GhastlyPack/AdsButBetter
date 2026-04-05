@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { config } from '../config';
+import { config, runtimeSettings } from '../config';
 import { DataProvider } from '../services/data-ingestion';
 import { metricsRepo } from '../db/repositories/metrics.repo';
 import { ruleRepo } from '../db/repositories/rule.repo';
@@ -114,15 +114,33 @@ export async function runEvaluation(): Promise<{ evaluated: number; triggered: n
   return { evaluated: campaigns.length, triggered: totalTriggered, recommendations: newRecommendations };
 }
 
+let scheduledTasks: cron.ScheduledTask[] = [];
+let currentDataProvider: DataProvider;
+
 export function startScheduler(dataProvider: DataProvider): void {
-  const { metricsPollingIntervalMinutes, ruleEvaluationIntervalMinutes } = config.scheduler;
+  currentDataProvider = dataProvider;
+  scheduleJobs();
+}
+
+export function restartScheduler(): void {
+  // Stop existing tasks
+  for (const task of scheduledTasks) {
+    task.stop();
+  }
+  scheduledTasks = [];
+  logger.info('Scheduler stopped for reconfiguration');
+  scheduleJobs();
+}
+
+function scheduleJobs(): void {
+  const { metricsPollingIntervalMinutes, ruleEvaluationIntervalMinutes } = runtimeSettings;
 
   // Poll metrics
-  cron.schedule(`*/${metricsPollingIntervalMinutes} * * * *`, async () => {
+  const pollTask = cron.schedule(`*/${metricsPollingIntervalMinutes} * * * *`, async () => {
     if (!isSystemEnabled()) { logger.debug('System disabled, skipping poll'); return; }
     try {
       logger.info('Job: polling metrics');
-      const snapshots = await dataProvider.fetchAllMetrics();
+      const snapshots = await currentDataProvider.fetchAllMetrics();
       for (const snapshot of snapshots) {
         metricsRepo.insert(snapshot);
       }
@@ -131,9 +149,10 @@ export function startScheduler(dataProvider: DataProvider): void {
       logger.error('Metrics polling failed', { error: String(err) });
     }
   });
+  scheduledTasks.push(pollTask);
 
   // Evaluate rules
-  cron.schedule(`*/${ruleEvaluationIntervalMinutes} * * * *`, async () => {
+  const evalTask = cron.schedule(`*/${ruleEvaluationIntervalMinutes} * * * *`, async () => {
     if (!isSystemEnabled()) { logger.debug('System disabled, skipping evaluation'); return; }
     try {
       logger.info('Job: evaluating rules');
@@ -143,6 +162,7 @@ export function startScheduler(dataProvider: DataProvider): void {
       logger.error('Rule evaluation failed', { error: String(err) });
     }
   });
+  scheduledTasks.push(evalTask);
 
   logger.info('Scheduler started', {
     metricsPollingIntervalMinutes,

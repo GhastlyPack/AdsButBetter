@@ -24,4 +24,10 @@ export const config = {
     defaultCooldownMinutes: 60,
     maxBudgetChangePercent: 50,
   },
-} as const;
+};
+
+// Mutable runtime settings (can be changed via API)
+export const runtimeSettings = {
+  metricsPollingIntervalMinutes: config.scheduler.metricsPollingIntervalMinutes,
+  ruleEvaluationIntervalMinutes: config.scheduler.ruleEvaluationIntervalMinutes,
+};

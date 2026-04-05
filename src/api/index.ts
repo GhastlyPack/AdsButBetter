@@ -7,7 +7,8 @@ import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { decisionLogRepo } from '../db/repositories/decision-log.repo';
 import { getDb } from '../db';
 import { MockDataProvider } from '../services/data-ingestion/mock-provider';
-import { runEvaluation } from '../scheduler';
+import { runEvaluation, restartScheduler } from '../scheduler';
+import { runtimeSettings } from '../config';
 
 let systemEnabled = true;
 
@@ -18,16 +19,39 @@ export function isSystemEnabled(): boolean {
 export function createApiRouter(dataProvider: MockDataProvider): Router {
   const router = Router();
 
-  // System on/off
+  // System settings
   router.get('/settings', (_req, res) => {
-    res.json({ enabled: systemEnabled });
+    res.json({
+      enabled: systemEnabled,
+      metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
+      ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
+    });
   });
 
   router.post('/settings', (req, res) => {
+    let schedulerChanged = false;
+
     if (typeof req.body.enabled === 'boolean') {
       systemEnabled = req.body.enabled;
     }
-    res.json({ enabled: systemEnabled });
+    if (typeof req.body.metricsPollingIntervalMinutes === 'number' && req.body.metricsPollingIntervalMinutes >= 1) {
+      runtimeSettings.metricsPollingIntervalMinutes = req.body.metricsPollingIntervalMinutes;
+      schedulerChanged = true;
+    }
+    if (typeof req.body.ruleEvaluationIntervalMinutes === 'number' && req.body.ruleEvaluationIntervalMinutes >= 1) {
+      runtimeSettings.ruleEvaluationIntervalMinutes = req.body.ruleEvaluationIntervalMinutes;
+      schedulerChanged = true;
+    }
+
+    if (schedulerChanged) {
+      restartScheduler();
+    }
+
+    res.json({
+      enabled: systemEnabled,
+      metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
+      ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
+    });
   });
 
   // Overview stats
