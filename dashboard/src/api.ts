@@ -75,7 +75,16 @@ export interface Recommendation {
   discord_message_id: string | null;
 }
 
+export interface OverviewStats {
+  campaigns: { total: number; active: number; paused: number };
+  metrics: { totalSpend: number; totalLeads: number; totalClicks: number; totalImpressions: number; avgCpl: number };
+  pendingActions: number;
+  topCampaigns: { id: string; name: string; status: string; budget: number; spend: number; leads: number; cpl: number; ctr: number }[];
+  recentActions: Recommendation[];
+}
+
 export const api = {
+  getOverview: () => fetchJson<OverviewStats>('/overview'),
   getCampaigns: () => fetchJson<Campaign[]>('/campaigns'),
   getCampaignMetrics: (id: string, limit = 24) =>
     fetchJson<MetricsSnapshot[]>(`/campaigns/${id}/metrics?limit=${limit}`),

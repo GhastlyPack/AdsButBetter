@@ -12,6 +12,47 @@ import { runEvaluation } from '../scheduler';
 export function createApiRouter(dataProvider: MockDataProvider): Router {
   const router = Router();
 
+  // Overview stats
+  router.get('/overview', (_req, res) => {
+    const campaigns = campaignRepo.findAll();
+    const active = campaigns.filter(c => c.status === 'active').length;
+    const paused = campaigns.filter(c => c.status === 'paused').length;
+
+    let totalSpend = 0;
+    let totalLeads = 0;
+    let totalClicks = 0;
+    let totalImpressions = 0;
+    const campaignStats: { id: string; name: string; status: string; budget: number; spend: number; leads: number; cpl: number; ctr: number }[] = [];
+
+    for (const c of campaigns) {
+      const latest = metricsRepo.getLatest(c.id);
+      if (latest) {
+        totalSpend += latest.spend;
+        totalLeads += latest.leads;
+        totalClicks += latest.clicks;
+        totalImpressions += latest.impressions;
+        campaignStats.push({
+          id: c.id, name: c.name, status: c.status, budget: c.dailyBudget,
+          spend: latest.spend, leads: latest.leads,
+          cpl: latest.cpl < 99999 ? latest.cpl : 0,
+          ctr: latest.ctr,
+        });
+      }
+    }
+
+    const avgCpl = totalLeads > 0 ? Math.round(totalSpend / totalLeads * 100) / 100 : 0;
+    const pending = recommendationRepo.findPending().length;
+    const recentActions = recommendationRepo.findRecent(5);
+
+    res.json({
+      campaigns: { total: campaigns.length, active, paused },
+      metrics: { totalSpend: Math.round(totalSpend * 100) / 100, totalLeads, totalClicks, totalImpressions, avgCpl },
+      pendingActions: pending,
+      topCampaigns: campaignStats.sort((a, b) => b.leads - a.leads).slice(0, 5),
+      recentActions,
+    });
+  });
+
   // Campaigns
   router.get('/campaigns', (_req, res) => {
     const campaigns = campaignRepo.findAll();
