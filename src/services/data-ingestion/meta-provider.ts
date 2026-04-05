@@ -37,7 +37,7 @@ export class MetaDataProvider implements DataProvider {
   }
 
   async fetchCampaigns(): Promise<{ id: string; name: string; status: string; dailyBudget: number }[]> {
-    const url = `https://graph.facebook.com/v21.0/act_${this.config.adAccountId}/campaigns?fields=id,name,status,daily_budget&access_token=${this.config.accessToken}`;
+    const url = `https://graph.facebook.com/v21.0/act_${this.config.adAccountId}/campaigns?fields=id,name,status,daily_budget,effective_status&filtering=[{"field":"effective_status","operator":"IN","value":["ACTIVE","PAUSED","ARCHIVED","IN_PROCESS","WITH_ISSUES"]}]&access_token=${this.config.accessToken}`;
     const res = await fetch(url);
     const data: any = await res.json();
 
