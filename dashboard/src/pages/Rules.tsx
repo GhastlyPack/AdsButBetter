@@ -28,9 +28,9 @@ export default function RulesPage() {
       <div className="rule-list">
         {rules.map(rule => {
           const conditions = typeof rule.conditions === 'string' ? JSON.parse(rule.conditions) : rule.conditions;
-          const actionParams = typeof rule.action_params === 'string' ? JSON.parse(rule.action_params) : rule.action_params;
+          const actionParams = typeof rule.action_params === 'string' ? JSON.parse(rule.action_params) : (rule.action_params || {});
           const actionLabel = ACTION_LABELS[rule.action] || rule.action;
-          const paramStr = actionParams.percentage ? ` (${actionParams.percentage}%)` : '';
+          const paramStr = actionParams && actionParams.percentage ? ` (${actionParams.percentage}%)` : '';
 
           return (
             <div key={rule.id} className="rule-card">
