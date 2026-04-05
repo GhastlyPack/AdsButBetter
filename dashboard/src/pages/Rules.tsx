@@ -6,11 +6,11 @@ const OPERATOR_LABELS: Record<string, string> = {
 };
 const ACTION_LABELS: Record<string, string> = {
   pause_campaign: 'Pause Campaign', start_campaign: 'Start Campaign',
-  increase_budget: 'Increase Budget', decrease_budget: 'Decrease Budget',
+  increase_budget: 'Increase Budget', decrease_budget: 'Decrease Budget', warn: 'Warning (Advisory)',
 };
 const METRICS = ['spend', 'impressions', 'clicks', 'leads', 'ctr', 'cpc', 'cpl', 'registrationRate'];
 const OPERATORS = ['gt', 'lt', 'gte', 'lte', 'eq'];
-const ACTIONS = ['pause_campaign', 'start_campaign', 'increase_budget', 'decrease_budget'];
+const ACTIONS = ['pause_campaign', 'start_campaign', 'increase_budget', 'decrease_budget', 'warn'];
 
 function RuleForm({ rule, offers, onSave, onCancel }: {
   rule: Partial<Rule> | null;
@@ -274,6 +274,9 @@ export default function RulesPage() {
                   }}>
                     {rule.tier === 'universal' ? 'L1' : 'L2'}
                   </span>
+                  {rule.id.startsWith('rule-suggestion') && (
+                    <span className="badge" style={{ background: 'var(--accent)20', color: 'var(--accent)', borderColor: 'var(--accent)40' }}>AI</span>
+                  )}
                   <div className="rule-name">{rule.name}</div>
                   {offerName && <span className="text-secondary" style={{ fontSize: 12 }}>({offerName})</span>}
                 </div>

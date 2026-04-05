@@ -110,6 +110,45 @@ export async function deleteMessages(messageIds: string[]): Promise<void> {
   }
 }
 
+export async function sendWarningAlert(warning: {
+  campaignId: string;
+  campaignName: string;
+  title: string;
+  reasoning: string;
+  metrics: Record<string, number>;
+}): Promise<void> {
+  const client = getDiscordClient();
+  const channelId = config.discord.warningsChannelId;
+  if (!channelId) return;
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !(channel instanceof TextChannel)) return;
+
+    const metricsStr = Object.entries(warning.metrics)
+      .map(([k, v]) => `**${k}**: ${typeof v === 'number' && k.toLowerCase().includes('rate') ? (v * 100).toFixed(2) + '%' : k.toLowerCase().includes('cpl') || k.toLowerCase().includes('cpc') || k.toLowerCase().includes('spend') ? '$' + v.toFixed(2) : v}`)
+      .join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Warning: ${warning.title}`)
+      .setDescription(warning.reasoning)
+      .addFields(
+        { name: 'Campaign', value: `${warning.campaignName} (\`${warning.campaignId}\`)`, inline: false },
+        { name: 'Current Metrics', value: metricsStr || 'N/A', inline: false },
+      )
+      .setColor(0xf59e0b)
+      .setTimestamp();
+
+    const managerRoleId = config.discord.managerRoleId;
+    const pingContent = managerRoleId ? `<@&${managerRoleId}>` : '';
+
+    await channel.send({ content: pingContent, embeds: [embed] });
+    logger.info('Sent warning to Discord', { campaignId: warning.campaignId, title: warning.title });
+  } catch (err) {
+    logger.error('Failed to send warning', { error: String(err) });
+  }
+}
+
 export async function sendSuggestionAlert(suggestion: {
   id: string;
   name: string;

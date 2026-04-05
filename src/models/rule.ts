@@ -2,7 +2,7 @@ import { EntityLevel } from './campaign';
 
 export type MetricKey = 'spend' | 'impressions' | 'clicks' | 'leads' | 'ctr' | 'cpc' | 'cpl' | 'registrationRate' | 'qualifiedLeads' | 'cpql' | 'revenue' | 'roas';
 export type Operator = 'gt' | 'lt' | 'gte' | 'lte' | 'eq' | 'delta_gt' | 'delta_lt';
-export type ActionType = 'pause_campaign' | 'start_campaign' | 'increase_budget' | 'decrease_budget';
+export type ActionType = 'pause_campaign' | 'start_campaign' | 'increase_budget' | 'decrease_budget' | 'warn';
 
 export interface RuleCondition {
   metric: MetricKey;

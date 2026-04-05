@@ -23,7 +23,6 @@ export async function initDiscord(): Promise<Client> {
 
   if (config.discord.botToken) {
     await client.login(config.discord.botToken);
-    // Wait for the ready event so client.user is available
     await new Promise<void>(resolve => {
       if (client.isReady()) {
         resolve();
@@ -39,63 +38,41 @@ export async function initDiscord(): Promise<Client> {
   return client;
 }
 
-export async function ensureAiChatChannel(): Promise<void> {
+export async function ensureAllChannels(): Promise<void> {
   if (!client?.isReady() || !config.discord.guildId) return;
 
   try {
     const guild = await client.guilds.fetch(config.discord.guildId);
-    const existing = guild.channels.cache.find(
-      c => c.name === 'ai-chat' && c.type === ChannelType.GuildText
-    );
-    if (existing) return;
+    await guild.channels.fetch(); // Refresh cache
 
-    // Find the AdsButBetter category
     const category = guild.channels.cache.find(
       c => c.name === 'AdsButBetter' && c.type === ChannelType.GuildCategory
     );
+    const parentId = category?.id;
 
-    // Also ensure #rule-suggestions exists
-    const suggestionsExists = guild.channels.cache.find(
-      c => c.name === 'rule-suggestions' && c.type === ChannelType.GuildText
-    );
-    if (!suggestionsExists) {
-      const suggestionsChannel = await guild.channels.create({
-        name: 'rule-suggestions',
-        type: ChannelType.GuildText,
-        parent: category?.id,
-        topic: 'AI-suggested rules for manager approval',
-        reason: 'AdsButBetter rule suggestions channel',
-      });
-      logger.info('Created #rule-suggestions channel', { channelId: suggestionsChannel.id });
+    const channelsToEnsure = [
+      { name: 'ai-chat', topic: 'Chat with the AI assistant — @mention the bot or use /ask' },
+      { name: 'rule-suggestions', topic: 'AI-suggested rules for manager approval' },
+      { name: 'warnings', topic: 'Performance warnings and advisory alerts — no action required, just awareness' },
+    ];
+
+    for (const ch of channelsToEnsure) {
+      const exists = guild.channels.cache.find(
+        c => c.name === ch.name && c.type === ChannelType.GuildText
+      );
+      if (!exists) {
+        const created = await guild.channels.create({
+          name: ch.name,
+          type: ChannelType.GuildText,
+          parent: parentId,
+          topic: ch.topic,
+          reason: 'AdsButBetter channel',
+        });
+        logger.info(`Created #${ch.name} channel`, { channelId: created.id });
+      }
     }
-
-    const channel = await guild.channels.create({
-      name: 'ai-chat',
-      type: ChannelType.GuildText,
-      parent: category?.id,
-      topic: 'Chat with the AI assistant — @mention the bot or use /ask',
-      reason: 'AdsButBetter AI chat channel',
-    });
-
-    // Post welcome message
-    const { EmbedBuilder } = require('discord.js');
-    const embed = new EmbedBuilder()
-      .setTitle('AI Assistant')
-      .setColor(0x3bb8e8)
-      .setDescription('Chat with the AdsButBetter AI assistant. You can:\n\n- **@mention the bot** with a question\n- **Reply to the bot\'s messages** for follow-up\n- Use `/ask` in any channel')
-      .addFields({
-        name: 'Examples',
-        value: [
-          '`@AdsButBetter How are my campaigns performing?`',
-          '`@AdsButBetter Create a rule to pause if CPL > $50`',
-          '`@AdsButBetter What should I do with camp-003?`',
-        ].join('\n'),
-      });
-
-    await (channel as TextChannel).send({ embeds: [embed] });
-    logger.info('Created #ai-chat channel', { channelId: channel.id });
   } catch (err) {
-    logger.error('Failed to create ai-chat channel', { error: String(err) });
+    logger.error('Failed to ensure channels', { error: String(err) });
   }
 }
 

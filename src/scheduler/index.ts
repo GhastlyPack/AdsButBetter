@@ -8,7 +8,7 @@ import { evaluateRules } from '../services/rule-engine';
 import { generateRecommendation } from '../services/recommendation';
 import { Recommendation } from '../models';
 import { randomUUID } from 'crypto';
-import { sendRecommendationAlert, sendLogMessage, deleteMessages } from '../discord/alerts';
+import { sendRecommendationAlert, sendLogMessage, deleteMessages, sendWarningAlert } from '../discord/alerts';
 import { isSystemEnabled } from '../api';
 import { logger } from '../utils/logger';
 
@@ -91,6 +91,32 @@ export async function runEvaluation(): Promise<{ evaluated: number; triggered: n
       );
       if (recent) {
         logger.debug('Rule skipped (cooldown)', { ruleId: t.rule.id, entityId: t.entityId });
+        continue;
+      }
+
+      // Handle "warn" action — advisory only, no approve/deny needed
+      if (t.rule.action === 'warn') {
+        const recommendation = await generateRecommendation(t, latestMetrics);
+        await sendWarningAlert({
+          campaignId: t.entityId,
+          campaignName: campaign.name,
+          title: t.rule.name,
+          reasoning: recommendation.reasoning,
+          metrics: {
+            spend: latestMetrics.spend,
+            leads: latestMetrics.leads,
+            cpl: latestMetrics.cpl < 99999 ? latestMetrics.cpl : 0,
+            cpc: latestMetrics.cpc,
+            ctr: latestMetrics.ctr,
+            registrationRate: latestMetrics.registrationRate,
+          },
+        });
+        // Still store as a recommendation for history, but auto-mark as 'noted'
+        recommendation.status = 'executed' as any;
+        recommendationRepo.insert(recommendation);
+        newRecommendations.push(recommendation.id);
+        totalTriggered++;
+        logger.info('Warning sent', { entityId: t.entityId, rule: t.rule.name });
         continue;
       }
 

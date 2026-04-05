@@ -1,5 +1,5 @@
 import { ButtonInteraction, EmbedBuilder, ChatInputCommandInteraction, Message } from 'discord.js';
-import { getDiscordClient, ensureAiChatChannel } from './bot';
+import { getDiscordClient, ensureAllChannels } from './bot';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { executeAction } from '../services/execution';
 import { sendLogMessage } from './alerts';
@@ -15,9 +15,9 @@ const mentionSessions: Record<string, any[]> = {};
 export async function registerInteractions(): Promise<void> {
   const client = getDiscordClient();
 
-  // Register slash commands + ensure ai-chat channel
+  // Register slash commands + ensure all channels exist
   await registerSlashCommands();
-  await ensureAiChatChannel();
+  await ensureAllChannels();
 
   // Handle @mentions and replies
   client.on('messageCreate', async (message: Message) => {
