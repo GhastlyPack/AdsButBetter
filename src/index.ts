@@ -37,6 +37,13 @@ async function main() {
   const AUTH0_CLIENT_SECRET = process.env.AUTH0_CLIENT_SECRET;
   const AUTH0_BASE_URL = process.env.AUTH0_BASE_URL || `https://app.adsbutbetter.com`;
   const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || 'bowskyventures.com';
+  const ALLOWED_EMAILS = (process.env.ALLOWED_EMAILS || '16croemer.stem@gmail.com').split(',').map(e => e.trim());
+
+  function isEmailAllowed(email: string): boolean {
+    if (ALLOWED_EMAILS.includes(email)) return true;
+    const domain = email.split('@')[1] || '';
+    return domain === ALLOWED_DOMAIN;
+  }
 
   if (AUTH0_DOMAIN && AUTH0_CLIENT_ID && AUTH0_CLIENT_SECRET) {
     // Auth0 SSO
@@ -61,9 +68,8 @@ async function main() {
       if (req.oidc?.isAuthenticated()) {
         const user = req.oidc.user;
         const email = user?.email || '';
-        const domain = email.split('@')[1] || '';
 
-        if (domain !== ALLOWED_DOMAIN) {
+        if (!isEmailAllowed(email)) {
           res.status(403).json({
             authenticated: false,
             error: `Access restricted to @${ALLOWED_DOMAIN} accounts`,
@@ -90,10 +96,9 @@ async function main() {
       if (!req.oidc?.isAuthenticated()) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      // Check domain
+      // Check email access
       const email = req.oidc.user?.email || '';
-      const domain = email.split('@')[1] || '';
-      if (domain !== ALLOWED_DOMAIN) {
+      if (!isEmailAllowed(email)) {
         return res.status(403).json({ error: `Access restricted to @${ALLOWED_DOMAIN}` });
       }
       // Attach user info for logging
