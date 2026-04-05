@@ -9,6 +9,7 @@ import { getDb } from '../db';
 import { offerRepo } from '../db/repositories/offer.repo';
 import { SwitchableDataProvider } from '../services/data-ingestion/switchable-provider';
 import { runEvaluation, restartScheduler } from '../scheduler';
+import { chat } from '../services/llm/chat';
 import { runtimeSettings } from '../config';
 
 let systemEnabled = true;
@@ -340,6 +341,37 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
   router.post('/test/approve-ad/:id', (req, res) => {
     campaignRepo.updateAdReviewStatus(req.params.id, 'approved');
     res.json({ approved: req.params.id });
+  });
+
+  // AI Chat
+  const chatSessions: Record<string, any[]> = {};
+
+  router.post('/ai/chat', async (req, res) => {
+    try {
+      const { message, sessionId } = req.body;
+      if (!message) return res.status(400).json({ error: 'message required' });
+
+      const sid = sessionId || 'default';
+      const history = chatSessions[sid] || [];
+
+      const result = await chat(message, history);
+      chatSessions[sid] = result.history;
+
+      // Keep sessions bounded
+      if (result.history.length > 40) {
+        chatSessions[sid] = result.history.slice(-20);
+      }
+
+      res.json({ response: result.response, sessionId: sid });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
+  router.post('/ai/clear', (req, res) => {
+    const { sessionId } = req.body;
+    delete chatSessions[sessionId || 'default'];
+    res.json({ cleared: true });
   });
 
   // Clear all history (for transitioning from test to production)

@@ -54,12 +54,14 @@ export async function setupDiscordServer(guildId: string): Promise<SetupResult |
   const logsChannel = await ensureChannel(guild, 'logs', category.id, 'System logs, metric polls, and decision history');
   const rulesChannel = await ensureChannel(guild, 'rules', category.id, 'Current rule configuration reference');
   const helpChannel = await ensureChannel(guild, 'help', category.id, 'How to use AdsButBetter');
+  const aiChatChannel = await ensureChannel(guild, 'ai-chat', category.id, 'Chat with the AI assistant using /ask');
 
   // Post welcome/instruction messages
   await postInstructions(helpChannel, managerRole.id);
   await postRulesInfo(rulesChannel);
   await postAlertsInfo(alertsChannel, managerRole.id);
   await postLogsInfo(logsChannel);
+  await postAiChatInfo(aiChatChannel);
 
   logger.info('Discord server setup complete', {
     managerRoleId: managerRole.id,
@@ -191,6 +193,33 @@ async function postLogsInfo(channel: TextChannel) {
     .setTitle('System Logs')
     .setColor(0x7a8fa3)
     .setDescription('This channel receives system activity logs including metric polls, rule evaluations, and action execution results.');
+
+  await channel.send({ embeds: [embed] });
+}
+
+async function postAiChatInfo(channel: TextChannel) {
+  const messages = await channel.messages.fetch({ limit: 1 });
+  if (messages.size > 0) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle('AI Assistant')
+    .setColor(0x3bb8e8)
+    .setDescription('Chat with the AdsButBetter AI assistant using the `/ask` command.')
+    .addFields(
+      {
+        name: 'How to use',
+        value: [
+          '`/ask How are my campaigns performing?`',
+          '`/ask Which campaign has the highest CPL?`',
+          '`/ask Create a rule to pause campaigns with CPL over $50`',
+          '`/ask What actions are pending?`',
+        ].join('\n'),
+      },
+      {
+        name: 'What it can do',
+        value: 'Query campaigns, metrics, rules, and recommendations. It can also create/edit rules and manage campaign budgets — with your confirmation.',
+      }
+    );
 
   await channel.send({ embeds: [embed] });
 }

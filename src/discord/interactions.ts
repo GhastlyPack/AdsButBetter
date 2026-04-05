@@ -1,14 +1,26 @@
-import { ButtonInteraction, EmbedBuilder } from 'discord.js';
+import { ButtonInteraction, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
 import { getDiscordClient } from './bot';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { executeAction } from '../services/execution';
 import { sendLogMessage } from './alerts';
+import { handleAskCommand, registerSlashCommands } from './commands/ask';
 import { logger } from '../utils/logger';
 
-export function registerInteractions(): void {
+export async function registerInteractions(): Promise<void> {
   const client = getDiscordClient();
 
+  // Register slash commands
+  await registerSlashCommands();
+
   client.on('interactionCreate', async (interaction) => {
+    // Handle slash commands
+    if (interaction.isChatInputCommand()) {
+      if (interaction.commandName === 'ask') {
+        await handleAskCommand(interaction as ChatInputCommandInteraction);
+      }
+      return;
+    }
+
     if (!interaction.isButton()) return;
 
     const [action, recommendationId] = interaction.customId.split('_');
