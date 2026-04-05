@@ -33,7 +33,7 @@ async function main() {
   // Serve dashboard static files in production
   const dashboardPath = path.join(__dirname, '..', 'dashboard', 'dist');
   app.use(express.static(dashboardPath));
-  app.get('*', (_req, res) => {
+  app.get('/{*splat}', (_req, res) => {
     res.sendFile(path.join(dashboardPath, 'index.html'));
   });
 
