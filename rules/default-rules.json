@@ -1,0 +1,61 @@
+[
+  {
+    "id": "rule-high-cpa",
+    "name": "High CPA - Pause Campaign",
+    "description": "Pause campaign if CPA exceeds $50 with at least 10 conversions",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "cpa", "operator": "gt", "threshold": 50 },
+      { "metric": "conversions", "operator": "gte", "threshold": 10 }
+    ],
+    "action": "pause_campaign",
+    "actionParams": {},
+    "priority": 10,
+    "cooldownMinutes": 120
+  },
+  {
+    "id": "rule-low-roas",
+    "name": "Low ROAS - Decrease Budget",
+    "description": "Decrease budget by 20% if ROAS drops below 1.5 with sufficient spend",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "roas", "operator": "lt", "threshold": 1.5 },
+      { "metric": "spend", "operator": "gte", "threshold": 100 }
+    ],
+    "action": "decrease_budget",
+    "actionParams": { "percentage": 20 },
+    "priority": 8,
+    "cooldownMinutes": 60
+  },
+  {
+    "id": "rule-high-roas",
+    "name": "High ROAS - Increase Budget",
+    "description": "Increase budget by 15% if ROAS exceeds 3.0 with sufficient data",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "roas", "operator": "gt", "threshold": 3.0 },
+      { "metric": "conversions", "operator": "gte", "threshold": 5 }
+    ],
+    "action": "increase_budget",
+    "actionParams": { "percentage": 15 },
+    "priority": 5,
+    "cooldownMinutes": 60
+  },
+  {
+    "id": "rule-zero-impressions",
+    "name": "Zero Impressions - Alert",
+    "description": "Flag campaign with zero impressions but active status",
+    "enabled": true,
+    "entityLevel": "campaign",
+    "conditions": [
+      { "metric": "impressions", "operator": "eq", "threshold": 0 }
+    ],
+    "action": "pause_campaign",
+    "actionParams": {},
+    "priority": 15,
+    "cooldownMinutes": 30
+  }
+]
