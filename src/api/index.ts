@@ -24,6 +24,8 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
   router.get('/settings', (_req, res) => {
     res.json({
       enabled: systemEnabled,
+      aiReasoningEnabled: runtimeSettings.aiReasoningEnabled,
+      aiConfigured: !!process.env.ANTHROPIC_API_KEY,
       metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
       ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
       dataSource: dataProvider.getSource(),
@@ -46,6 +48,9 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
       runtimeSettings.ruleEvaluationIntervalMinutes = req.body.ruleEvaluationIntervalMinutes;
       schedulerChanged = true;
     }
+    if (typeof req.body.aiReasoningEnabled === 'boolean') {
+      runtimeSettings.aiReasoningEnabled = req.body.aiReasoningEnabled;
+    }
     if (req.body.dataSource === 'mock' || req.body.dataSource === 'meta') {
       dataProvider.setSource(req.body.dataSource);
     }
@@ -62,6 +67,8 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
 
     res.json({
       enabled: systemEnabled,
+      aiReasoningEnabled: runtimeSettings.aiReasoningEnabled,
+      aiConfigured: !!process.env.ANTHROPIC_API_KEY,
       metricsPollingIntervalMinutes: runtimeSettings.metricsPollingIntervalMinutes,
       ruleEvaluationIntervalMinutes: runtimeSettings.ruleEvaluationIntervalMinutes,
       dataSource: dataProvider.getSource(),

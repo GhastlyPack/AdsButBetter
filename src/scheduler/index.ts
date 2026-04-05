@@ -94,7 +94,7 @@ export async function runEvaluation(): Promise<{ evaluated: number; triggered: n
         continue;
       }
 
-      const recommendation = generateRecommendation(t);
+      const recommendation = await generateRecommendation(t, latestMetrics);
       recommendationRepo.insert(recommendation);
       newRecommendations.push(recommendation.id);
       totalTriggered++;

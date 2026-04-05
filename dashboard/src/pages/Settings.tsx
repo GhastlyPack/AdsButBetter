@@ -4,6 +4,8 @@ const BASE = '/api';
 
 interface SettingsData {
   enabled: boolean;
+  aiReasoningEnabled: boolean;
+  aiConfigured: boolean;
   metricsPollingIntervalMinutes: number;
   ruleEvaluationIntervalMinutes: number;
   dataSource: 'mock' | 'meta';
@@ -14,6 +16,8 @@ interface SettingsData {
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsData>({
     enabled: true,
+    aiReasoningEnabled: false,
+    aiConfigured: false,
     metricsPollingIntervalMinutes: 5,
     ruleEvaluationIntervalMinutes: 5,
     dataSource: 'mock',
@@ -83,6 +87,28 @@ export default function SettingsPage() {
           >
             <div className="toggle-knob" />
             <span className="toggle-label">{settings.enabled ? 'ON' : 'OFF'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* AI Reasoning */}
+      <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4 }}>AI Reasoning (Claude)</div>
+            <div className="text-secondary" style={{ fontSize: 13 }}>
+              {settings.aiConfigured
+                ? 'When enabled, Claude analyzes campaign data and provides intelligent confidence scores and reasoning for each recommendation.'
+                : 'Add ANTHROPIC_API_KEY to your .env to enable AI-powered reasoning.'}
+            </div>
+          </div>
+          <button
+            className={`toggle-btn ${settings.aiReasoningEnabled ? 'on' : 'off'}`}
+            onClick={() => update({ aiReasoningEnabled: !settings.aiReasoningEnabled })}
+            disabled={loading || !settings.aiConfigured}
+          >
+            <div className="toggle-knob" />
+            <span className="toggle-label">{settings.aiReasoningEnabled ? 'ON' : 'OFF'}</span>
           </button>
         </div>
       </div>

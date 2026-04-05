@@ -1,12 +1,37 @@
-import { Recommendation, TriggeredRule } from '../../models';
+import { Recommendation, TriggeredRule, MetricsSnapshot } from '../../models';
 import { randomUUID } from 'crypto';
+import { analyzeRecommendation } from '../llm';
+import { buildRecommendationContext } from '../llm/context-builder';
+import { runtimeSettings } from '../../config';
+import { logger } from '../../utils/logger';
 
-export function generateRecommendation(triggered: TriggeredRule): Recommendation {
+export async function generateRecommendation(
+  triggered: TriggeredRule,
+  currentMetrics: MetricsSnapshot
+): Promise<Recommendation> {
   const { rule, entityId, entityLevel, conditionResults } = triggered;
 
+  // Default: mathematical confidence + template reasoning
+  let confidence = calculateConfidence(triggered);
   const conditionSummary = conditionResults
     .map(cr => `${cr.condition.metric} ${cr.condition.operator} ${cr.condition.threshold} (actual: ${cr.actualValue})`)
     .join('; ');
+  let reasoning = `Rule "${rule.name}" triggered: ${conditionSummary}`;
+
+  // Try LLM analysis if enabled
+  if (runtimeSettings.aiReasoningEnabled) {
+    try {
+      const context = buildRecommendationContext(triggered, currentMetrics);
+      const analysis = await analyzeRecommendation(context);
+      if (analysis) {
+        confidence = analysis.confidence;
+        reasoning = analysis.reasoning;
+        logger.info('Using LLM reasoning', { entityId, rule: rule.name, confidence });
+      }
+    } catch (err) {
+      logger.error('LLM reasoning failed, using fallback', { error: String(err) });
+    }
+  }
 
   return {
     id: randomUUID(),
@@ -14,8 +39,8 @@ export function generateRecommendation(triggered: TriggeredRule): Recommendation
     entityLevel,
     action: rule.action,
     actionParams: rule.actionParams,
-    confidence: calculateConfidence(triggered),
-    reasoning: `Rule "${rule.name}" triggered: ${conditionSummary}`,
+    confidence,
+    reasoning,
     triggeredRuleIds: [rule.id],
     status: 'pending',
     discordMessageId: null,
@@ -26,8 +51,6 @@ export function generateRecommendation(triggered: TriggeredRule): Recommendation
 }
 
 function calculateConfidence(triggered: TriggeredRule): number {
-  // TODO: Improve with historical data and LLM layer
-  // For now: base confidence from how far past thresholds the actuals are
   const { conditionResults } = triggered;
   const margins = conditionResults.map(cr => {
     const diff = Math.abs(cr.actualValue - cr.condition.threshold);

@@ -11,6 +11,7 @@
   "keywords": [],
   "license": "UNLICENSED",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "better-sqlite3": "^11.7.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
