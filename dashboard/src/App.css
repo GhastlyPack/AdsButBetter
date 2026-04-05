@@ -926,14 +926,26 @@ td {
     padding: 14px;
   }
 
-  /* Tables scroll horizontally */
+  /* Tables scroll horizontally on campaigns/history */
   .table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
 
-  table {
+  .table-wrap table {
     min-width: 600px;
+  }
+
+  /* Tables inside cards (Getting Started, etc) should wrap */
+  .card table {
+    min-width: unset;
+    font-size: 13px;
+  }
+
+  .card table td,
+  .card table th {
+    padding: 8px 6px;
+    word-break: break-word;
   }
 
   /* Metrics grid */

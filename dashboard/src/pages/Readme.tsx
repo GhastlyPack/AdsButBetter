@@ -7,7 +7,7 @@ export default function ReadmePage() {
   const t = { color: 'var(--text-secondary)' };
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: 720, overflow: 'hidden' }}>
       <div className="card" style={{ marginBottom: 16 }}>
         <h2 style={{ marginBottom: 16 }}>What is AdsButBetter?</h2>
         <p style={{ color: 'var(--text-secondary)', lineHeight: 1.8, fontSize: 14 }}>
@@ -66,35 +66,29 @@ export default function ReadmePage() {
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginBottom: 12 }}>Dashboard Pages</h3>
-        <table style={{ width: '100%' }}>
-          <thead><tr><th>Page</th><th>What it does</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Overview</strong></td><td>Summary stats, top campaigns, recent activity</td></tr>
-            <tr><td><strong>Campaigns</strong></td><td>Campaign list with metrics, manual entry, anomaly testing</td></tr>
-            <tr><td><strong>Offers</strong></td><td>Group campaigns by offer/niche, assign campaigns</td></tr>
-            <tr><td><strong>Rules</strong></td><td>Create/edit/delete rules, AI suggestions, L1/L2 tiers</td></tr>
-            <tr><td><strong>Actions</strong></td><td>Pending recommendations — approve or deny</td></tr>
-            <tr><td><strong>History</strong></td><td>Full decision log with status filters</td></tr>
-            <tr><td><strong>AI Assistant</strong></td><td>Chat with Claude about campaigns, metrics, rules</td></tr>
-            <tr><td><strong>Settings</strong></td><td>System on/off, AI toggle, data source, scheduler, Meta config, clear history</td></tr>
-          </tbody>
-        </table>
+        <ul style={s}>
+          <li><strong style={h}>Overview</strong> — Summary stats, top campaigns, recent activity</li>
+          <li><strong style={h}>Campaigns</strong> — Campaign list with metrics, manual entry, anomaly testing</li>
+          <li><strong style={h}>Offers</strong> — Group campaigns by offer/niche, assign campaigns</li>
+          <li><strong style={h}>Rules</strong> — Create/edit/delete rules, AI suggestions, L1/L2 tiers</li>
+          <li><strong style={h}>Actions</strong> — Pending recommendations — approve or deny</li>
+          <li><strong style={h}>History</strong> — Full decision log with status filters</li>
+          <li><strong style={h}>AI Assistant</strong> — Chat with Claude about campaigns, metrics, rules</li>
+          <li><strong style={h}>Settings</strong> — System on/off, AI toggle, data source, scheduler, Meta config</li>
+        </ul>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginBottom: 12 }}>Discord Channels</h3>
-        <table style={{ width: '100%' }}>
-          <thead><tr><th>Channel</th><th>Purpose</th></tr></thead>
-          <tbody>
-            <tr><td><strong>#alerts</strong></td><td>Action recommendations with approve/deny buttons</td></tr>
-            <tr><td><strong>#ai-chat</strong></td><td>@mention the bot or /ask for AI queries</td></tr>
-            <tr><td><strong>#rule-suggestions</strong></td><td>AI-suggested rules with approve/deny</td></tr>
-            <tr><td><strong>#warnings</strong></td><td>Performance advisories (no action needed)</td></tr>
-            <tr><td><strong>#logs</strong></td><td>System activity and decision log</td></tr>
-            <tr><td><strong>#rules</strong></td><td>Rule engine reference</td></tr>
-            <tr><td><strong>#help</strong></td><td>Getting started guide</td></tr>
-          </tbody>
-        </table>
+        <ul style={s}>
+          <li><strong style={h}>#alerts</strong> — Action recommendations with approve/deny buttons</li>
+          <li><strong style={h}>#ai-chat</strong> — @mention the bot or /ask for AI queries</li>
+          <li><strong style={h}>#rule-suggestions</strong> — AI-suggested rules with approve/deny</li>
+          <li><strong style={h}>#warnings</strong> — Performance advisories (no action needed)</li>
+          <li><strong style={h}>#logs</strong> — System activity and decision log</li>
+          <li><strong style={h}>#rules</strong> — Rule engine reference</li>
+          <li><strong style={h}>#help</strong> — Getting started guide</li>
+        </ul>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
