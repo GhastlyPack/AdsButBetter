@@ -19,5 +19,10 @@ jobs:
             git pull origin main
             npm ci
             npx tsc
+            cp src/db/schema.sql dist/db/schema.sql
+            cd dashboard
+            npm ci
+            npm run build
+            cd ..
             npm prune --omit=dev
             sudo systemctl restart adsbutbetter
