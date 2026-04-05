@@ -1,9 +1,11 @@
 import { Router } from 'express';
+import { randomUUID } from 'crypto';
 import { campaignRepo } from '../db/repositories/campaign.repo';
 import { metricsRepo } from '../db/repositories/metrics.repo';
 import { ruleRepo } from '../db/repositories/rule.repo';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { decisionLogRepo } from '../db/repositories/decision-log.repo';
+import { getDb } from '../db';
 import { MockDataProvider } from '../services/data-ingestion/mock-provider';
 import { runEvaluation } from '../scheduler';
 
@@ -33,6 +35,45 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     const latest = metricsRepo.getLatest(req.params.id);
     if (!latest) return res.status(404).json({ error: 'No metrics found' });
     res.json(latest);
+  });
+
+  // Manually insert a custom metrics snapshot + evaluate rules
+  router.post('/metrics/manual', (req, res) => {
+    const { entityId, spend, impressions, clicks, leads } = req.body;
+    if (!entityId) return res.status(400).json({ error: 'entityId required' });
+
+    const s = spend ?? 0;
+    const imp = impressions ?? 0;
+    const cl = clicks ?? 0;
+    const ld = leads ?? 0;
+
+    const ctr = imp > 0 ? cl / imp : 0;
+    const cpc = cl > 0 ? s / cl : 0;
+    const cpl = ld > 0 ? s / ld : (s > 0 ? 99999 : 0);
+    const registrationRate = cl > 0 ? ld / cl : 0;
+
+    const snapshot = {
+      id: randomUUID(),
+      entityId,
+      entityLevel: 'campaign' as const,
+      timestamp: new Date().toISOString(),
+      spend: Math.round(s * 100) / 100,
+      impressions: Math.round(imp),
+      clicks: Math.round(cl),
+      leads: Math.round(ld),
+      ctr: Math.round(ctr * 10000) / 10000,
+      cpc: Math.round(cpc * 100) / 100,
+      cpl: Math.round(cpl * 100) / 100,
+      registrationRate: Math.round(registrationRate * 10000) / 10000,
+      qualifiedLeads: null,
+      cpql: null,
+      revenue: null,
+      roas: null,
+    };
+
+    metricsRepo.insert(snapshot);
+    const evalResult = runEvaluation();
+    res.json({ snapshot, ...evalResult });
   });
 
   // Poll metrics + evaluate rules in one action
@@ -76,7 +117,6 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
   });
 
   router.delete('/rules/:id', (req, res) => {
-    const { getDb } = require('../db');
     getDb().prepare('DELETE FROM rules WHERE id = ?').run(req.params.id);
     res.json({ deleted: req.params.id });
   });
@@ -100,17 +140,25 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
   });
 
   router.post('/recommendations/:id/approve', (req, res) => {
-    const rec = recommendationRepo.findById(req.params.id);
-    if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
-    recommendationRepo.updateStatus(req.params.id, 'approved', 'dashboard');
-    res.json({ status: 'approved' });
+    try {
+      const rec = recommendationRepo.findById(req.params.id);
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
+      recommendationRepo.updateStatus(req.params.id, 'approved', 'dashboard');
+      res.json({ status: 'approved', id: req.params.id });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   router.post('/recommendations/:id/deny', (req, res) => {
-    const rec = recommendationRepo.findById(req.params.id);
-    if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
-    recommendationRepo.updateStatus(req.params.id, 'denied', 'dashboard');
-    res.json({ status: 'denied' });
+    try {
+      const rec = recommendationRepo.findById(req.params.id);
+      if (!rec) return res.status(404).json({ error: 'Recommendation not found' });
+      recommendationRepo.updateStatus(req.params.id, 'denied', 'dashboard');
+      res.json({ status: 'denied', id: req.params.id });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
   });
 
   // Decision logs

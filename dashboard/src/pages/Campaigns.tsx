@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, Campaign, MetricsSnapshot } from '../api';
 
 function formatNumber(n: number): string {
@@ -88,6 +88,42 @@ export default function CampaignsPage() {
     setLoading(false);
   };
 
+  const [manualSpend, setManualSpend] = useState('');
+  const [manualImpressions, setManualImpressions] = useState('');
+  const [manualClicks, setManualClicks] = useState('');
+  const [manualLeads, setManualLeads] = useState('');
+  const [showManualForm, setShowManualForm] = useState(false);
+
+  const handleManualSubmit = async () => {
+    if (!selectedId || loading) return;
+    setLoading(true);
+    try {
+      const result = await api.submitManualMetrics({
+        entityId: selectedId,
+        spend: Number(manualSpend) || 0,
+        impressions: Number(manualImpressions) || 0,
+        clicks: Number(manualClicks) || 0,
+        leads: Number(manualLeads) || 0,
+      });
+      setLastPollResult(`Manual snapshot inserted. ${result.triggered} rules triggered.`);
+      await loadCampaigns();
+    } catch {
+      setLastPollResult('Manual submit failed');
+    }
+    setLoading(false);
+  };
+
+  // Pre-fill manual form with latest values when campaign changes
+  useEffect(() => {
+    if (selectedId && latestMetrics[selectedId]) {
+      const m = latestMetrics[selectedId];
+      setManualSpend(m.spend.toString());
+      setManualImpressions(m.impressions.toString());
+      setManualClicks(m.clicks.toString());
+      setManualLeads(m.leads.toString());
+    }
+  }, [selectedId, latestMetrics]);
+
   const selectedCampaign = campaigns.find(c => c.id === selectedId);
   const latest = selectedId ? detailMetrics[0] : null;
 
@@ -152,6 +188,42 @@ export default function CampaignsPage() {
               <button className="btn btn-sm btn-secondary" onClick={() => handleAnomaly('zero_impressions')} disabled={loading}>Zero Impr</button>
             </div>
           </div>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+            <button className="btn btn-sm btn-secondary" onClick={() => setShowManualForm(!showManualForm)}>
+              {showManualForm ? 'Hide Manual Entry' : 'Manual Entry'}
+            </button>
+          </div>
+
+          {showManualForm && (
+            <div className="card" style={{ marginBottom: 12 }}>
+              <h4 style={{ marginBottom: 12, fontSize: 14 }}>Submit Custom Metrics</h4>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div>
+                  <label style={labelStyle}>Spend ($)</label>
+                  <input type="number" value={manualSpend} onChange={e => setManualSpend(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Impressions</label>
+                  <input type="number" value={manualImpressions} onChange={e => setManualImpressions(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Clicks</label>
+                  <input type="number" value={manualClicks} onChange={e => setManualClicks(e.target.value)} style={inputStyle} />
+                </div>
+                <div>
+                  <label style={labelStyle}>Leads</label>
+                  <input type="number" value={manualLeads} onChange={e => setManualLeads(e.target.value)} style={inputStyle} />
+                </div>
+                <button className="btn btn-primary" onClick={handleManualSubmit} disabled={loading}>
+                  {loading ? 'Submitting...' : 'Submit + Evaluate'}
+                </button>
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
+                CPC, CTR, CPL, and Reg Rate are calculated automatically. Rules will be evaluated after submission.
+              </p>
+            </div>
+          )}
+
           <div className="card">
             <h3 style={{ marginBottom: 16 }}>{selectedCampaign.name}</h3>
             {latest ? (
@@ -196,3 +268,6 @@ export default function CampaignsPage() {
     </div>
   );
 }
+
+const labelStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 };
+const inputStyle: React.CSSProperties = { width: 120, padding: '6px 10px', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: 6, color: 'var(--text-primary)', fontSize: 14 };

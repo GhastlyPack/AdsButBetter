@@ -81,6 +81,8 @@ export const api = {
     fetchJson<MetricsSnapshot[]>(`/campaigns/${id}/metrics?limit=${limit}`),
   getLatestMetrics: (id: string) =>
     fetchJson<MetricsSnapshot>(`/campaigns/${id}/metrics/latest`),
+  submitManualMetrics: (data: { entityId: string; spend: number; impressions: number; clicks: number; leads: number }) =>
+    postJson<{ snapshot: MetricsSnapshot; evaluated: number; triggered: number; recommendations: string[] }>('/metrics/manual', data),
   pollMetrics: () => postJson<{ polled: number; evaluated: number; triggered: number; recommendations: string[] }>('/metrics/poll'),
   injectAnomaly: (campaignId: string, type: string, duration = 3) =>
     postJson('/test/anomaly', { campaignId, type, duration }),
