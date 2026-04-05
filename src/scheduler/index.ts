@@ -6,6 +6,8 @@ import { ruleRepo } from '../db/repositories/rule.repo';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { evaluateRules } from '../services/rule-engine';
 import { generateRecommendation } from '../services/recommendation';
+import { Recommendation } from '../models';
+import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 
 export function runEvaluation(): { evaluated: number; triggered: number; recommendations: string[] } {
@@ -16,6 +18,33 @@ export function runEvaluation(): { evaluated: number; triggered: number; recomme
   const newRecommendations: string[] = [];
 
   for (const campaign of campaigns) {
+    // Check for Meta ad decline — highest priority system check
+    if (campaign.ad_review_status === 'declined' || campaign.adReviewStatus === 'declined') {
+      const recent = recommendationRepo.findRecentForEntity(campaign.id, 'system-ad-declined', 60);
+      if (!recent) {
+        const rec: Recommendation = {
+          id: randomUUID(),
+          entityId: campaign.id,
+          entityLevel: 'campaign',
+          action: 'pause_campaign',
+          actionParams: {},
+          confidence: 1.0,
+          reasoning: `ALERT: Ad declined by Meta. Campaign "${campaign.name}" has been rejected by Meta ad review. Immediate action required.`,
+          triggeredRuleIds: ['system-ad-declined'],
+          status: 'pending',
+          discordMessageId: null,
+          createdAt: new Date().toISOString(),
+          resolvedAt: null,
+          resolvedBy: null,
+        };
+        recommendationRepo.insert(rec);
+        newRecommendations.push(rec.id);
+        totalTriggered++;
+        logger.warn('Ad declined by Meta', { entityId: campaign.id, name: campaign.name });
+      }
+      continue;
+    }
+
     if (campaign.status !== 'active') continue;
 
     const latestMetrics = metricsRepo.getLatest(campaign.id);

@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
+  ad_review_status TEXT NOT NULL DEFAULT 'approved',
   daily_budget REAL NOT NULL,
   lifetime_budget REAL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),

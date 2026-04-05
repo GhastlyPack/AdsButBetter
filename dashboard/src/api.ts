@@ -49,13 +49,13 @@ export interface Rule {
   id: string;
   name: string;
   description: string;
-  enabled: number;
-  entity_level: string;
-  conditions: string; // JSON string from SQLite
+  enabled: boolean;
+  entityLevel: string;
+  conditions: { metric: string; operator: string; threshold: number }[];
   action: string;
-  action_params: string;
+  actionParams: Record<string, number>;
   priority: number;
-  cooldown_minutes: number;
+  cooldownMinutes: number;
 }
 
 export interface Recommendation {
@@ -83,6 +83,13 @@ export const api = {
   injectAnomaly: (campaignId: string, type: string, duration = 3) =>
     postJson('/test/anomaly', { campaignId, type, duration }),
   getRules: () => fetchJson<Rule[]>('/rules'),
+  createRule: (rule: Partial<Rule>) => postJson<Rule>('/rules', rule),
+  updateRule: (id: string, updates: Partial<Rule>) =>
+    fetch(`${BASE}/rules/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) }).then(r => r.json()),
+  deleteRule: (id: string) =>
+    fetch(`${BASE}/rules/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  declineCampaign: (id: string) => postJson(`/test/decline/${id}`),
+  approveCampaignAd: (id: string) => postJson(`/test/approve-ad/${id}`),
   getRecommendations: (limit = 50) => fetchJson<Recommendation[]>(`/recommendations?limit=${limit}`),
   getPendingRecommendations: () => fetchJson<Recommendation[]>('/recommendations/pending'),
   approveRecommendation: (id: string) => postJson(`/recommendations/${id}/approve`),

@@ -51,6 +51,36 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     res.json(rules);
   });
 
+  router.post('/rules', (req, res) => {
+    const { id, name, description, enabled, entityLevel, conditions, action, actionParams, priority, cooldownMinutes } = req.body;
+    if (!id || !name || !action || !conditions) {
+      return res.status(400).json({ error: 'id, name, action, and conditions are required' });
+    }
+    const now = new Date().toISOString();
+    const rule = {
+      id, name, description: description || '', enabled: enabled !== false,
+      entityLevel: entityLevel || 'campaign', conditions, action,
+      actionParams: actionParams || {}, priority: priority || 0,
+      cooldownMinutes: cooldownMinutes || 60, createdAt: now, updatedAt: now,
+    };
+    ruleRepo.upsert(rule);
+    res.json(rule);
+  });
+
+  router.put('/rules/:id', (req, res) => {
+    const existing = ruleRepo.findAll().find(r => r.id === req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Rule not found' });
+    const updated = { ...existing, ...req.body, updatedAt: new Date().toISOString() };
+    ruleRepo.upsert(updated);
+    res.json(updated);
+  });
+
+  router.delete('/rules/:id', (req, res) => {
+    const { getDb } = require('../db');
+    getDb().prepare('DELETE FROM rules WHERE id = ?').run(req.params.id);
+    res.json({ deleted: req.params.id });
+  });
+
   // Evaluate rules manually
   router.post('/rules/evaluate', (_req, res) => {
     const result = runEvaluation();
@@ -88,6 +118,17 @@ export function createApiRouter(dataProvider: MockDataProvider): Router {
     const limit = parseInt(req.query.limit as string) || 50;
     const logs = decisionLogRepo.findRecent(limit);
     res.json(logs);
+  });
+
+  // Simulate ad decline (for testing)
+  router.post('/test/decline/:id', (req, res) => {
+    campaignRepo.updateAdReviewStatus(req.params.id, 'declined');
+    res.json({ declined: req.params.id });
+  });
+
+  router.post('/test/approve-ad/:id', (req, res) => {
+    campaignRepo.updateAdReviewStatus(req.params.id, 'approved');
+    res.json({ approved: req.params.id });
   });
 
   // Anomaly injection (for testing)

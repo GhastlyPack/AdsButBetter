@@ -12,10 +12,10 @@ export const campaignRepo = {
 
   insert(campaign: Campaign): void {
     getDb().prepare(`
-      INSERT INTO campaigns (id, name, status, daily_budget, lifetime_budget, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO campaigns (id, name, status, ad_review_status, daily_budget, lifetime_budget, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      campaign.id, campaign.name, campaign.status,
+      campaign.id, campaign.name, campaign.status, campaign.adReviewStatus,
       campaign.dailyBudget, campaign.lifetimeBudget,
       campaign.createdAt, campaign.updatedAt
     );
@@ -27,5 +27,9 @@ export const campaignRepo = {
 
   updateBudget(id: string, dailyBudget: number): void {
     getDb().prepare('UPDATE campaigns SET daily_budget = ?, updated_at = datetime("now") WHERE id = ?').run(dailyBudget, id);
+  },
+
+  updateAdReviewStatus(id: string, adReviewStatus: string): void {
+    getDb().prepare('UPDATE campaigns SET ad_review_status = ?, updated_at = datetime("now") WHERE id = ?').run(adReviewStatus, id);
   },
 };
