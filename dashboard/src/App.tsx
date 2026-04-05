@@ -141,15 +141,16 @@ export default function App() {
       const camps = await api.getCampaigns();
       setCampaigns(camps);
 
+      // Fetch all latest metrics in parallel
+      const results = await Promise.allSettled(
+        camps.map(c => api.getLatestMetrics(c.id))
+      );
       const metricsMap: Record<string, MetricsSnapshot> = {};
-      for (const c of camps) {
-        try {
-          const m = await api.getLatestMetrics(c.id);
-          metricsMap[c.id] = m;
-        } catch {
-          // No metrics yet
+      results.forEach((result, i) => {
+        if (result.status === 'fulfilled') {
+          metricsMap[camps[i].id] = result.value;
         }
-      }
+      });
       setLatestMetrics(metricsMap);
       setError(null);
     } catch (err) {
@@ -167,6 +168,7 @@ export default function App() {
   }, [selectedId, latestMetrics]);
 
   const handlePoll = async () => {
+    if (polling) return;
     setPolling(true);
     try {
       await api.pollMetrics();
@@ -178,9 +180,16 @@ export default function App() {
   };
 
   const handleAnomaly = async (type: string) => {
-    if (!selectedId) return;
-    await api.injectAnomaly(selectedId, type);
-    await handlePoll();
+    if (!selectedId || polling) return;
+    setPolling(true);
+    try {
+      await api.injectAnomaly(selectedId, type);
+      await api.pollMetrics();
+      await loadCampaigns();
+    } catch (err) {
+      setError('Anomaly injection failed');
+    }
+    setPolling(false);
   };
 
   const selectedCampaign = campaigns.find(c => c.id === selectedId);
@@ -245,10 +254,10 @@ export default function App() {
               <h2>Campaign Detail</h2>
               <div className="anomaly-controls">
                 <span className="text-secondary">Inject Anomaly:</span>
-                <button className="btn btn-sm btn-danger" onClick={() => handleAnomaly('spike_cpl')}>Spike CPL</button>
-                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('zero_leads')}>Zero Leads</button>
-                <button className="btn btn-sm btn-secondary" onClick={() => handleAnomaly('zero_impressions')}>Zero Impr</button>
-                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('budget_blowout')}>Budget Blowout</button>
+                <button className="btn btn-sm btn-danger" onClick={() => handleAnomaly('spike_cpl')} disabled={polling}>Spike CPL</button>
+                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('zero_leads')} disabled={polling}>Zero Leads</button>
+                <button className="btn btn-sm btn-secondary" onClick={() => handleAnomaly('zero_impressions')} disabled={polling}>Zero Impr</button>
+                <button className="btn btn-sm btn-warning" onClick={() => handleAnomaly('budget_blowout')} disabled={polling}>Budget Blowout</button>
               </div>
             </div>
             <CampaignDetail campaign={selectedCampaign} metrics={detailMetrics} />
