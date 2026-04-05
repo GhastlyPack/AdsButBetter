@@ -170,13 +170,11 @@ async function main() {
   await initDiscord();
 
   if (config.discord.botToken) {
-    registerInteractions();
+    await registerInteractions();
 
-    if (config.discord.guildId && !config.discord.alertsChannelId) {
-      const result = await setupDiscordServer(config.discord.guildId);
-      if (result) {
-        logger.info('Discord setup complete — add these to your .env:', { ...result });
-      }
+    // Always run setup to ensure channels exist and instructions are current
+    if (config.discord.guildId) {
+      await setupDiscordServer(config.discord.guildId);
     }
   }
 

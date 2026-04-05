@@ -129,9 +129,6 @@ async function ensureChannel(guild: Guild, name: string, parentId: string, topic
 }
 
 async function postHelpMessage(channel: TextChannel, managerRoleId: string) {
-  const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return;
-
   const embed = new EmbedBuilder()
     .setTitle('Welcome to AdsButBetter')
     .setColor(0x3bb8e8)
@@ -170,7 +167,13 @@ async function postHelpMessage(channel: TextChannel, managerRoleId: string) {
       },
     );
 
-  await channel.send({ embeds: [embed] });
+  const messages = await channel.messages.fetch({ limit: 5 });
+  const botMsg = messages.find(m => m.author.id === channel.client.user!.id && m.embeds.length > 0);
+  if (botMsg) {
+    await botMsg.edit({ embeds: [embed] });
+  } else {
+    await channel.send({ embeds: [embed] });
+  }
 }
 
 async function postChannelInfo(
@@ -180,9 +183,6 @@ async function postChannelInfo(
   description: string,
   fields: { name: string; value: string }[]
 ) {
-  const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return;
-
   const embed = new EmbedBuilder()
     .setTitle(title)
     .setColor(color)
@@ -192,5 +192,14 @@ async function postChannelInfo(
     embed.addFields(field);
   }
 
-  await channel.send({ embeds: [embed] });
+  // Find existing bot info message and update it, or post new one
+  const messages = await channel.messages.fetch({ limit: 5 });
+  const client = channel.client;
+  const botInfoMsg = messages.find(m => m.author.id === client.user!.id && m.embeds.length > 0);
+
+  if (botInfoMsg) {
+    await botInfoMsg.edit({ embeds: [embed] });
+  } else {
+    await channel.send({ embeds: [embed] });
+  }
 }
