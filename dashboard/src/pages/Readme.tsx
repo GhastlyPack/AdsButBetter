@@ -42,7 +42,7 @@ export default function ReadmePage() {
           <li>Use anomaly buttons (<strong style={{ color: 'var(--red)' }}>Spike CPL</strong>, <strong style={o}>Zero Leads</strong>) to force rules to trigger</li>
           <li>Check <strong style={h}>Actions</strong> page — approve or deny recommendations (also appears in Discord #alerts)</li>
           <li>Go to <strong style={h}>Rules</strong> — click <strong style={a}>AI Suggest Rules</strong> to get AI-generated rule suggestions</li>
-          <li>Try the <strong style={h}>AI Assistant</strong> — ask "How are my campaigns performing?" or "Create a rule to pause if CPL > $50"</li>
+          <li>Try the <strong style={h}>AI Assistant</strong> — ask "How are my campaigns performing?" or "Create a rule to pause if CPL is over $50"</li>
           <li>In Discord, @mention the bot or use <strong style={a}>/ask</strong> for the same AI capabilities</li>
           <li>View <strong style={h}>History</strong> to see all decisions and their outcomes</li>
         </ol>
