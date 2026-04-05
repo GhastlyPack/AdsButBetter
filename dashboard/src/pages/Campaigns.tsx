@@ -8,6 +8,7 @@ function formatNumber(n: number): string {
 }
 
 function formatCurrency(n: number): string {
+  if (n >= 99999) return '-';
   return '$' + n.toFixed(2);
 }
 
@@ -162,7 +163,7 @@ export default function CampaignsPage() {
                   <MetricCard label="Leads" value={latest.leads.toString()} />
                   <MetricCard label="CPC" value={formatCurrency(latest.cpc)} />
                   <MetricCard label="CTR" value={formatPercent(latest.ctr)} />
-                  <MetricCard label="CPL" value={formatCurrency(latest.cpl)} color={latest.cpl > 75 ? 'var(--red)' : latest.cpl < 30 ? 'var(--green)' : undefined} />
+                  <MetricCard label="CPL" value={formatCurrency(latest.cpl)} color={latest.cpl > 75 && latest.cpl < 99999 ? 'var(--red)' : latest.cpl < 30 ? 'var(--green)' : undefined} />
                   <MetricCard label="Reg Rate" value={formatPercent(latest.registrationRate)} />
                 </div>
                 <h4 style={{ margin: '20px 0 10px', fontSize: 14, color: 'var(--text-secondary)' }}>History ({detailMetrics.length} snapshots)</h4>
@@ -179,7 +180,7 @@ export default function CampaignsPage() {
                           <td>{m.leads}</td>
                           <td>{formatCurrency(m.cpc)}</td>
                           <td>{formatPercent(m.ctr)}</td>
-                          <td className={m.cpl > 75 ? 'text-red' : m.cpl < 30 ? 'text-green' : ''}>{formatCurrency(m.cpl)}</td>
+                          <td className={m.cpl > 75 && m.cpl < 99999 ? 'text-red' : m.cpl < 30 ? 'text-green' : ''}>{formatCurrency(m.cpl)}</td>
                         </tr>
                       ))}
                     </tbody>
