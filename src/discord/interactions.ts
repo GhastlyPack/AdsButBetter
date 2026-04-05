@@ -1,16 +1,74 @@
-import { ButtonInteraction, EmbedBuilder, ChatInputCommandInteraction } from 'discord.js';
-import { getDiscordClient } from './bot';
+import { ButtonInteraction, EmbedBuilder, ChatInputCommandInteraction, Message } from 'discord.js';
+import { getDiscordClient, ensureAiChatChannel } from './bot';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { executeAction } from '../services/execution';
 import { sendLogMessage } from './alerts';
 import { handleAskCommand, registerSlashCommands } from './commands/ask';
+import { chat } from '../services/llm/chat';
 import { logger } from '../utils/logger';
+
+// Per-user conversation history for @mention chats
+const mentionSessions: Record<string, any[]> = {};
 
 export async function registerInteractions(): Promise<void> {
   const client = getDiscordClient();
 
-  // Register slash commands
+  // Register slash commands + ensure ai-chat channel
   await registerSlashCommands();
+  await ensureAiChatChannel();
+
+  // Handle @mentions and replies
+  client.on('messageCreate', async (message: Message) => {
+    if (message.author.bot) return;
+
+    const isMention = message.mentions.has(client.user!);
+    const isReplyToBot = message.reference?.messageId
+      ? (await message.channel.messages.fetch(message.reference.messageId).catch(() => null))?.author?.id === client.user!.id
+      : false;
+
+    if (!isMention && !isReplyToBot) return;
+
+    // Extract the question (remove the @mention)
+    const question = message.content
+      .replace(new RegExp(`<@!?${client.user!.id}>`, 'g'), '')
+      .trim();
+
+    if (!question) {
+      await message.reply('Ask me something! For example: *How are my campaigns performing?*');
+      return;
+    }
+
+    // Show typing indicator
+    if ('sendTyping' in message.channel) {
+      await (message.channel as any).sendTyping();
+    }
+
+    try {
+      const userId = message.author.id;
+      const history = mentionSessions[userId] || [];
+      const result = await chat(question, history);
+      mentionSessions[userId] = result.history;
+
+      // Keep sessions bounded
+      if (result.history.length > 30) {
+        mentionSessions[userId] = result.history.slice(-15);
+      }
+
+      const responseText = result.response.length > 4000
+        ? result.response.substring(0, 4000) + '...'
+        : result.response;
+
+      const embed = new EmbedBuilder()
+        .setDescription(responseText)
+        .setColor(0x3bb8e8)
+        .setFooter({ text: `Reply to continue the conversation` });
+
+      await message.reply({ embeds: [embed] });
+    } catch (err) {
+      logger.error('Mention chat failed', { error: String(err) });
+      await message.reply('Sorry, I ran into an error. Please try again.');
+    }
+  });
 
   client.on('interactionCreate', async (interaction) => {
     // Handle slash commands

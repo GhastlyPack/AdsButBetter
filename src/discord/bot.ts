@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, ChannelType, TextChannel } from 'discord.js';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 
@@ -17,6 +17,7 @@ export async function initDiscord(): Promise<Client> {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
       GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.MessageContent,
     ],
   });
 
@@ -36,6 +37,51 @@ export async function initDiscord(): Promise<Client> {
   }
 
   return client;
+}
+
+export async function ensureAiChatChannel(): Promise<void> {
+  if (!client?.isReady() || !config.discord.guildId) return;
+
+  try {
+    const guild = await client.guilds.fetch(config.discord.guildId);
+    const existing = guild.channels.cache.find(
+      c => c.name === 'ai-chat' && c.type === ChannelType.GuildText
+    );
+    if (existing) return;
+
+    // Find the AdsButBetter category
+    const category = guild.channels.cache.find(
+      c => c.name === 'AdsButBetter' && c.type === ChannelType.GuildCategory
+    );
+
+    const channel = await guild.channels.create({
+      name: 'ai-chat',
+      type: ChannelType.GuildText,
+      parent: category?.id,
+      topic: 'Chat with the AI assistant — @mention the bot or use /ask',
+      reason: 'AdsButBetter AI chat channel',
+    });
+
+    // Post welcome message
+    const { EmbedBuilder } = require('discord.js');
+    const embed = new EmbedBuilder()
+      .setTitle('AI Assistant')
+      .setColor(0x3bb8e8)
+      .setDescription('Chat with the AdsButBetter AI assistant. You can:\n\n- **@mention the bot** with a question\n- **Reply to the bot\'s messages** for follow-up\n- Use `/ask` in any channel')
+      .addFields({
+        name: 'Examples',
+        value: [
+          '`@AdsButBetter How are my campaigns performing?`',
+          '`@AdsButBetter Create a rule to pause if CPL > $50`',
+          '`@AdsButBetter What should I do with camp-003?`',
+        ].join('\n'),
+      });
+
+    await (channel as TextChannel).send({ embeds: [embed] });
+    logger.info('Created #ai-chat channel', { channelId: channel.id });
+  } catch (err) {
+    logger.error('Failed to create ai-chat channel', { error: String(err) });
+  }
 }
 
 export async function shutdownDiscord(): Promise<void> {
