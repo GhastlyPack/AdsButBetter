@@ -57,7 +57,11 @@ export default function CampaignsPage() {
     } catch {}
   }, []);
 
-  useEffect(() => { loadCampaigns(); }, [loadCampaigns]);
+  useEffect(() => {
+    loadCampaigns();
+    const interval = setInterval(loadCampaigns, 10000); // refresh every 10s
+    return () => clearInterval(interval);
+  }, [loadCampaigns]);
 
   useEffect(() => {
     if (!selectedId) return;

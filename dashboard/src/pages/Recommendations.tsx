@@ -36,7 +36,11 @@ export default function RecommendationsPage() {
     api.getRecommendations().then(setRecommendations).catch(() => {});
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleAction = async (id: string, action: 'approve' | 'deny') => {
     if (loading) return;
