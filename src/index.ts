@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import path from 'path';
 import { config } from './config';
 import { initDb, closeDb } from './db';
@@ -29,7 +30,41 @@ async function main() {
   // Set up Express
   const app = express();
   app.use(cors());
+  app.use(cookieParser());
   app.use(express.json());
+
+  // Password protection with cookie session
+  const APP_PASSWORD = process.env.APP_PASSWORD || 'BOWSKY';
+
+  // Login endpoint — sets a cookie
+  app.post('/api/auth/login', (req, res) => {
+    if (req.body.password === APP_PASSWORD) {
+      res.cookie('abb_auth', 'authenticated', {
+        httpOnly: true,
+        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+        sameSite: 'lax',
+      });
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ error: 'Wrong password' });
+    }
+  });
+
+  // Check auth status
+  app.get('/api/auth/check', (req, res) => {
+    if (req.cookies?.abb_auth === 'authenticated') {
+      res.json({ authenticated: true });
+    } else {
+      res.status(401).json({ authenticated: false });
+    }
+  });
+
+  // Protect API routes (except auth)
+  app.use('/api', (req, res, next) => {
+    if (req.path.startsWith('/auth')) return next();
+    if (req.cookies?.abb_auth === 'authenticated') return next();
+    res.status(401).json({ error: 'Unauthorized' });
+  });
 
   // API routes
   app.use('/api', createApiRouter(dataProvider));

@@ -232,6 +232,28 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Danger Zone */}
+      <div className="card" style={{ maxWidth: 560, marginTop: 16, borderColor: 'var(--red)40' }}>
+        <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8, color: 'var(--red)' }}>Danger Zone</div>
+        <p className="text-secondary" style={{ fontSize: 13, marginBottom: 12 }}>
+          Clear all metrics, recommendations, and decision logs. Use this when transitioning from test data to live Meta data.
+        </p>
+        <button
+          className="btn btn-danger"
+          onClick={async () => {
+            if (!confirm('Are you sure? This will delete ALL metrics, recommendations, and decision history.')) return;
+            setLoading(true);
+            await fetch(`${BASE}/clear-history`, { method: 'POST' });
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+            setLoading(false);
+          }}
+          disabled={loading}
+        >
+          Clear All History
+        </button>
+      </div>
+
       {/* Status */}
       <div className="card" style={{ maxWidth: 560, marginTop: 16 }}>
         <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Status</div>

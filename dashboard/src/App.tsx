@@ -1,15 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import LoginPage from './pages/Login';
 import OverviewPage from './pages/Overview';
 import CampaignsPage from './pages/Campaigns';
 import RulesPage from './pages/Rules';
 import RecommendationsPage from './pages/Recommendations';
 import HistoryPage from './pages/History';
 import SettingsPage from './pages/Settings';
+import ReadmePage from './pages/Readme';
 import './App.css';
 
-type Page = 'overview' | 'campaigns' | 'rules' | 'recommendations' | 'history' | 'settings';
+type Page = 'overview' | 'campaigns' | 'rules' | 'recommendations' | 'history' | 'settings' | 'getting-started';
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
+  { key: 'getting-started', label: 'Getting Started', icon: '📖' },
   { key: 'overview', label: 'Overview', icon: '🏠' },
   { key: 'campaigns', label: 'Campaigns', icon: '📊' },
   { key: 'rules', label: 'Rules', icon: '⚙️' },
@@ -20,6 +23,16 @@ const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
 
 export default function App() {
   const [page, setPage] = useState<Page>('overview');
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/check')
+      .then(r => setAuthenticated(r.ok))
+      .catch(() => setAuthenticated(false));
+  }, []);
+
+  if (authenticated === null) return null; // Loading
+  if (!authenticated) return <LoginPage onLogin={() => setAuthenticated(true)} />;
 
   return (
     <div className="app">
@@ -49,6 +62,7 @@ export default function App() {
           <h1>{NAV_ITEMS.find(n => n.key === page)?.label}</h1>
         </header>
         <main className="main">
+          {page === 'getting-started' && <ReadmePage />}
           {page === 'overview' && <OverviewPage onNavigate={(p) => setPage(p as Page)} />}
           {page === 'campaigns' && <CampaignsPage />}
           {page === 'rules' && <RulesPage />}

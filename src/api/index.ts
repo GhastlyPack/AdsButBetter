@@ -293,6 +293,14 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     res.json({ approved: req.params.id });
   });
 
+  // Clear all history (for transitioning from test to production)
+  router.post('/clear-history', (_req, res) => {
+    getDb().prepare('DELETE FROM recommendations').run();
+    getDb().prepare('DELETE FROM decision_logs').run();
+    getDb().prepare('DELETE FROM metrics_snapshots').run();
+    res.json({ cleared: true });
+  });
+
   // Anomaly injection (for testing)
   router.post('/test/anomaly', (req, res) => {
     const { campaignId, type, duration } = req.body;
