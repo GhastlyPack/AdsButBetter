@@ -34,7 +34,7 @@ export const recommendationRepo = {
 
   updateStatus(id: string, status: string, resolvedBy?: string): void {
     getDb().prepare(
-      'UPDATE recommendations SET status = ?, resolved_at = datetime("now"), resolved_by = ? WHERE id = ?'
+      "UPDATE recommendations SET status = ?, resolved_at = datetime('now'), resolved_by = ? WHERE id = ?"
     ).run(status, resolvedBy || null, id);
   },
 
