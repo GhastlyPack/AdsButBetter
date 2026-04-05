@@ -415,6 +415,37 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     res.json({ status: 'denied' });
   });
 
+  // Refresh Discord channel instructions
+  router.post('/discord/refresh-instructions', async (_req, res) => {
+    try {
+      const { setupDiscordServer } = require('../discord/setup');
+      const { config } = require('../config');
+      if (!config.discord.guildId) return res.json({ error: 'No guild ID configured' });
+
+      // Delete old bot messages from instructional channels
+      const client = require('../discord/bot').getDiscordClient();
+      const guild = await client.guilds.fetch(config.discord.guildId);
+      await guild.channels.fetch();
+
+      const instructionChannels = ['help', 'rules', 'alerts', 'logs', 'ai-chat', 'rule-suggestions', 'warnings'];
+      for (const name of instructionChannels) {
+        const ch = guild.channels.cache.find((c: any) => c.name === name && c.type === 0);
+        if (ch) {
+          const msgs = await (ch as any).messages.fetch({ limit: 10 });
+          const botMsgs = msgs.filter((m: any) => m.author.id === client.user.id);
+          for (const [, msg] of botMsgs) {
+            await msg.delete().catch(() => {});
+          }
+        }
+      }
+
+      await setupDiscordServer(config.discord.guildId);
+      res.json({ refreshed: true });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   // AI Chat
   const chatSessions: Record<string, any[]> = {};
 

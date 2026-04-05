@@ -2,7 +2,6 @@ import {
   ChannelType,
   EmbedBuilder,
   Guild,
-  PermissionFlagsBits,
   TextChannel,
 } from 'discord.js';
 import { getDiscordClient } from './bot';
@@ -24,7 +23,6 @@ export async function setupDiscordServer(guildId: string): Promise<SetupResult |
 
   logger.info('Setting up Discord server', { guild: guild.name });
 
-  // Create Manager role if it doesn't exist
   let managerRole = guild.roles.cache.find(r => r.name === 'ABB Manager');
   if (!managerRole) {
     managerRole = await guild.roles.create({
@@ -36,7 +34,6 @@ export async function setupDiscordServer(guildId: string): Promise<SetupResult |
     logger.info('Created Manager role', { roleId: managerRole.id });
   }
 
-  // Create category if it doesn't exist
   let category = guild.channels.cache.find(
     c => c.name === 'AdsButBetter' && c.type === ChannelType.GuildCategory
   );
@@ -46,22 +43,58 @@ export async function setupDiscordServer(guildId: string): Promise<SetupResult |
       type: ChannelType.GuildCategory,
       reason: 'AdsButBetter bot channels',
     });
-    logger.info('Created category', { categoryId: category.id });
   }
 
-  // Create channels
-  const alertsChannel = await ensureChannel(guild, 'alerts', category.id, 'Action recommendations that need approval or denial');
-  const logsChannel = await ensureChannel(guild, 'logs', category.id, 'System logs, metric polls, and decision history');
-  const rulesChannel = await ensureChannel(guild, 'rules', category.id, 'Current rule configuration reference');
-  const helpChannel = await ensureChannel(guild, 'help', category.id, 'How to use AdsButBetter');
-  const aiChatChannel = await ensureChannel(guild, 'ai-chat', category.id, 'Chat with the AI assistant using /ask');
+  const alertsChannel = await ensureChannel(guild, 'alerts', category.id, 'Action recommendations — approve or deny with buttons');
+  const logsChannel = await ensureChannel(guild, 'logs', category.id, 'System logs and decision history');
+  const rulesChannel = await ensureChannel(guild, 'rules', category.id, 'Rule engine reference');
+  const helpChannel = await ensureChannel(guild, 'help', category.id, 'Getting started with AdsButBetter');
+  const aiChatChannel = await ensureChannel(guild, 'ai-chat', category.id, '@mention the bot or use /ask');
+  const suggestionsChannel = await ensureChannel(guild, 'rule-suggestions', category.id, 'AI-suggested rules for approval');
+  const warningsChannel = await ensureChannel(guild, 'warnings', category.id, 'Performance warnings — no action needed, just awareness');
 
-  // Post welcome/instruction messages
-  await postInstructions(helpChannel, managerRole.id);
-  await postRulesInfo(rulesChannel);
-  await postAlertsInfo(alertsChannel, managerRole.id);
-  await postLogsInfo(logsChannel);
-  await postAiChatInfo(aiChatChannel);
+  await postHelpMessage(helpChannel, managerRole.id);
+  await postChannelInfo(alertsChannel, 'Alerts', 0xf59e0b,
+    `Action recommendations from the rule engine and AI. <@&${managerRole.id}> members are pinged for each alert.`,
+    [
+      { name: 'How to respond', value: 'Click **Approve** to execute the action, or **Deny** to reject it. Each alert includes AI-generated reasoning and a confidence score.' },
+      { name: 'What happens on approve', value: 'The action is executed immediately (budget change, pause, etc.) and logged. The embed updates to show the result.' },
+    ]
+  );
+  await postChannelInfo(rulesChannel, 'Rule Engine', 0x44d492,
+    'Rules evaluate campaign metrics and trigger actions. Two tiers: **L1 Universal** (all campaigns) and **L2 Offer-Specific** (per niche).',
+    [
+      { name: 'Actions', value: '`pause_campaign` · `start_campaign` · `increase_budget` · `decrease_budget` · `warn` (advisory only)' },
+      { name: 'AI features', value: 'The AI generates confidence scores and reasoning for each triggered rule. It can also suggest new rules based on campaign patterns — see #rule-suggestions.' },
+      { name: 'Manage', value: 'Create, edit, and delete rules at **https://app.adsbutbetter.com** → Rules' },
+    ]
+  );
+  await postChannelInfo(logsChannel, 'System Logs', 0x7a8fa3,
+    'Automated log of system activity: metric polls, rule evaluations, action executions, and decisions.',
+    []
+  );
+  await postChannelInfo(aiChatChannel, 'AI Assistant', 0x3bb8e8,
+    'Talk to the AdsButBetter AI. It has full access to your campaigns, metrics, rules, and can make changes with your confirmation.',
+    [
+      { name: 'How to use', value: '**@mention the bot** with a question, or use the `/ask` command.\n**Reply to the bot** to continue a conversation.' },
+      { name: 'Examples', value: '`@AdsButBetter How are my campaigns performing?`\n`@AdsButBetter Which campaign has the worst CPL?`\n`@AdsButBetter Create a rule to decrease budget if CPC > $5`\n`/ask What actions are pending?`' },
+      { name: 'What it can do', value: 'Query campaigns & metrics · View/edit rules · Check recommendations · Change budgets · Pause/start campaigns · Explain decisions' },
+    ]
+  );
+  await postChannelInfo(suggestionsChannel, 'Rule Suggestions', 0x3bb8e8,
+    'The AI analyzes your campaign data and suggests new rules. Click **Approve** to create the rule, or **Deny** to dismiss it.',
+    [
+      { name: 'How it works', value: 'Click **AI Suggest Rules** on the dashboard, or the AI will periodically analyze patterns and suggest improvements.' },
+      { name: 'Approved suggestions', value: 'Become active rules immediately and show an **AI** badge in the rules list.' },
+    ]
+  );
+  await postChannelInfo(warningsChannel, 'Warnings', 0xf59e0b,
+    'Performance warnings that don\'t require action but need your attention. These are advisory alerts — the system flags potential issues for you to investigate.',
+    [
+      { name: 'Examples', value: 'Low conversion rates, unusual spend patterns, campaigns that might need creative refreshes or funnel fixes.' },
+      { name: 'No action needed', value: 'Unlike #alerts, these don\'t have approve/deny buttons. They\'re informational — review the metrics and take action if you see fit.' },
+    ]
+  );
 
   logger.info('Discord server setup complete', {
     managerRoleId: managerRole.id,
@@ -95,131 +128,69 @@ async function ensureChannel(guild: Guild, name: string, parentId: string, topic
   return channel;
 }
 
-async function postInstructions(channel: TextChannel, managerRoleId: string) {
+async function postHelpMessage(channel: TextChannel, managerRoleId: string) {
   const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return; // Already has messages
+  if (messages.size > 0) return;
 
   const embed = new EmbedBuilder()
     .setTitle('Welcome to AdsButBetter')
     .setColor(0x3bb8e8)
-    .setDescription('AdsButBetter is an AI-powered ad operations agent that monitors your Meta Ads campaigns and recommends optimizations.')
+    .setDescription('AdsButBetter is an AI-powered ad operations agent that monitors Meta Ads campaigns, evaluates performance against rules, and recommends or executes optimizations.')
     .addFields(
       {
         name: 'How it works',
         value: [
-          '1. The system polls your ad metrics on a schedule',
+          '1. Metrics are polled from Meta Ads (or mock data for testing)',
           '2. Rules evaluate metrics against thresholds (CPL, CPC, CTR, etc.)',
-          '3. When a rule triggers, a recommendation is posted in #alerts',
-          '4. Managers approve or deny actions using the buttons',
-          '5. Approved actions are executed and logged',
+          '3. When rules trigger, the AI generates recommendations with confidence scores',
+          '4. Recommendations are posted in **#alerts** with Approve/Deny buttons',
+          '5. Approved actions execute immediately (budget changes, pauses, etc.)',
+          '6. Warnings go to **#warnings** for awareness without requiring action',
+          '7. The AI learns from your decisions to improve future recommendations',
         ].join('\n'),
       },
       {
         name: 'Channels',
         value: [
-          '**#alerts** — Action recommendations that need your approval',
-          '**#logs** — System activity, metric snapshots, decision history',
-          '**#rules** — Current rule configuration',
-          '**#help** — This channel',
+          '**#alerts** — Action recommendations (approve/deny)',
+          '**#ai-chat** — Talk to the AI (@mention or /ask)',
+          '**#rule-suggestions** — AI-suggested new rules',
+          '**#warnings** — Performance advisories',
+          '**#logs** — System activity log',
+          '**#rules** — Rule engine reference',
         ].join('\n'),
+      },
+      {
+        name: 'AI Assistant',
+        value: '@mention the bot or use `/ask` to query campaigns, metrics, rules — or ask it to make changes.',
       },
       {
         name: 'Getting started',
-        value: `Ask an admin to assign you the <@&${managerRoleId}> role to receive alert pings.`,
+        value: `Get the <@&${managerRoleId}> role to receive alert pings. Visit the dashboard at **https://app.adsbutbetter.com**`,
       },
-      {
-        name: 'Dashboard',
-        value: 'View the full dashboard at **https://app.adsbutbetter.com**',
-      }
     );
 
   await channel.send({ embeds: [embed] });
 }
 
-async function postRulesInfo(channel: TextChannel) {
+async function postChannelInfo(
+  channel: TextChannel,
+  title: string,
+  color: number,
+  description: string,
+  fields: { name: string; value: string }[]
+) {
   const messages = await channel.messages.fetch({ limit: 1 });
   if (messages.size > 0) return;
 
   const embed = new EmbedBuilder()
-    .setTitle('Rule Engine')
-    .setColor(0x44d492)
-    .setDescription('Rules are evaluated against campaign metrics every polling cycle. When all conditions in a rule are met, a recommendation is generated.')
-    .addFields(
-      {
-        name: 'Rule structure',
-        value: '**IF** [conditions are met] **THEN** [action] with a cooldown period to prevent rapid re-firing.',
-      },
-      {
-        name: 'Available actions',
-        value: [
-          '`pause_campaign` — Pause the campaign',
-          '`start_campaign` — Resume a paused campaign',
-          '`increase_budget` — Increase daily budget by %',
-          '`decrease_budget` — Decrease daily budget by %',
-        ].join('\n'),
-      },
-      {
-        name: 'Manage rules',
-        value: 'Create, edit, and delete rules from the dashboard: **https://app.adsbutbetter.com** → Rules',
-      }
-    );
+    .setTitle(title)
+    .setColor(color)
+    .setDescription(description);
 
-  await channel.send({ embeds: [embed] });
-}
-
-async function postAlertsInfo(channel: TextChannel, managerRoleId: string) {
-  const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle('Alerts Channel')
-    .setColor(0xf59e0b)
-    .setDescription(`This channel receives action recommendations from the rule engine. <@&${managerRoleId}> members will be pinged for each alert.`)
-    .addFields(
-      {
-        name: 'How to respond',
-        value: 'Click **Approve** to execute the action, or **Deny** to reject it. Each alert shows the rule that triggered, the actual metrics, and a confidence score.',
-      }
-    );
-
-  await channel.send({ embeds: [embed] });
-}
-
-async function postLogsInfo(channel: TextChannel) {
-  const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle('System Logs')
-    .setColor(0x7a8fa3)
-    .setDescription('This channel receives system activity logs including metric polls, rule evaluations, and action execution results.');
-
-  await channel.send({ embeds: [embed] });
-}
-
-async function postAiChatInfo(channel: TextChannel) {
-  const messages = await channel.messages.fetch({ limit: 1 });
-  if (messages.size > 0) return;
-
-  const embed = new EmbedBuilder()
-    .setTitle('AI Assistant')
-    .setColor(0x3bb8e8)
-    .setDescription('Chat with the AdsButBetter AI assistant using the `/ask` command.')
-    .addFields(
-      {
-        name: 'How to use',
-        value: [
-          '`/ask How are my campaigns performing?`',
-          '`/ask Which campaign has the highest CPL?`',
-          '`/ask Create a rule to pause campaigns with CPL over $50`',
-          '`/ask What actions are pending?`',
-        ].join('\n'),
-      },
-      {
-        name: 'What it can do',
-        value: 'Query campaigns, metrics, rules, and recommendations. It can also create/edit rules and manage campaign budgets — with your confirmation.',
-      }
-    );
+  for (const field of fields) {
+    embed.addFields(field);
+  }
 
   await channel.send({ embeds: [embed] });
 }
