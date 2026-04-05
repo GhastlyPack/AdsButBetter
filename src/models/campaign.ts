@@ -7,8 +7,18 @@ export interface Campaign {
   name: string;
   status: CampaignStatus;
   adReviewStatus: AdReviewStatus;
+  offerId: string | null;
   dailyBudget: number;
   lifetimeBudget: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Offer {
+  id: string;
+  name: string;
+  niche: string;
+  description: string;
   createdAt: string;
   updatedAt: string;
 }

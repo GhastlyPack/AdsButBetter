@@ -6,6 +6,7 @@ import { ruleRepo } from '../db/repositories/rule.repo';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
 import { decisionLogRepo } from '../db/repositories/decision-log.repo';
 import { getDb } from '../db';
+import { offerRepo } from '../db/repositories/offer.repo';
 import { SwitchableDataProvider } from '../services/data-ingestion/switchable-provider';
 import { runEvaluation, restartScheduler } from '../scheduler';
 import { runtimeSettings } from '../config';
@@ -132,6 +133,46 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     res.json(campaign);
   });
 
+  // Campaign offer assignment
+  router.post('/campaigns/:id/offer', (req, res) => {
+    const { offerId } = req.body;
+    campaignRepo.updateOffer(req.params.id, offerId || null);
+    res.json({ updated: true });
+  });
+
+  // Offers
+  router.get('/offers', (_req, res) => {
+    const offers = offerRepo.findAll();
+    res.json(offers);
+  });
+
+  router.post('/offers', (req, res) => {
+    const { id, name, niche, description } = req.body;
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const now = new Date().toISOString();
+    const offer = {
+      id: id || `offer-${Date.now()}`,
+      name,
+      niche: niche || '',
+      description: description || '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    offerRepo.insert(offer);
+    res.json(offer);
+  });
+
+  router.put('/offers/:id', (req, res) => {
+    offerRepo.update(req.params.id, req.body);
+    const updated = offerRepo.findById(req.params.id);
+    res.json(updated);
+  });
+
+  router.delete('/offers/:id', (_req, res) => {
+    offerRepo.delete(_req.params.id);
+    res.json({ deleted: _req.params.id });
+  });
+
   // Metrics
   router.get('/campaigns/:id/metrics', (req, res) => {
     const limit = parseInt(req.query.limit as string) || 24;
@@ -201,13 +242,14 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
   });
 
   router.post('/rules', (req, res) => {
-    const { id, name, description, enabled, entityLevel, conditions, action, actionParams, priority, cooldownMinutes } = req.body;
+    const { id, name, description, enabled, tier, offerId, entityLevel, conditions, action, actionParams, priority, cooldownMinutes } = req.body;
     if (!id || !name || !action || !conditions) {
       return res.status(400).json({ error: 'id, name, action, and conditions are required' });
     }
     const now = new Date().toISOString();
     const rule = {
       id, name, description: description || '', enabled: enabled !== false,
+      tier: tier || 'universal', offerId: offerId || null,
       entityLevel: entityLevel || 'campaign', conditions, action,
       actionParams: actionParams || {}, priority: priority || 0,
       cooldownMinutes: cooldownMinutes || 60, createdAt: now, updatedAt: now,

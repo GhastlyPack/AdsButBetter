@@ -6,15 +6,17 @@ import RulesPage from './pages/Rules';
 import RecommendationsPage from './pages/Recommendations';
 import HistoryPage from './pages/History';
 import SettingsPage from './pages/Settings';
+import OffersPage from './pages/Offers';
 import ReadmePage from './pages/Readme';
 import './App.css';
 
-type Page = 'overview' | 'campaigns' | 'rules' | 'recommendations' | 'history' | 'settings' | 'getting-started';
+type Page = 'overview' | 'campaigns' | 'offers' | 'rules' | 'recommendations' | 'history' | 'settings' | 'getting-started';
 
 const NAV_ITEMS: { key: Page; label: string; icon: string }[] = [
   { key: 'getting-started', label: 'Getting Started', icon: '📖' },
   { key: 'overview', label: 'Overview', icon: '🏠' },
   { key: 'campaigns', label: 'Campaigns', icon: '📊' },
+  { key: 'offers', label: 'Offers', icon: '🏷️' },
   { key: 'rules', label: 'Rules', icon: '⚙️' },
   { key: 'recommendations', label: 'Actions', icon: '⚡' },
   { key: 'history', label: 'History', icon: '📋' },
@@ -65,6 +67,7 @@ export default function App() {
           {page === 'getting-started' && <ReadmePage />}
           {page === 'overview' && <OverviewPage onNavigate={(p) => setPage(p as Page)} />}
           {page === 'campaigns' && <CampaignsPage />}
+          {page === 'offers' && <OffersPage />}
           {page === 'rules' && <RulesPage />}
           {page === 'recommendations' && <RecommendationsPage />}
           {page === 'history' && <HistoryPage />}

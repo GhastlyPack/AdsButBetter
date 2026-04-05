@@ -6,6 +6,7 @@ interface CampaignRow {
   name: string;
   status: string;
   ad_review_status: string;
+  offer_id: string | null;
   daily_budget: number;
   lifetime_budget: number | null;
   created_at: string;
@@ -18,6 +19,7 @@ function rowToCampaign(row: CampaignRow): Campaign {
     name: row.name,
     status: row.status as Campaign['status'],
     adReviewStatus: row.ad_review_status as Campaign['adReviewStatus'],
+    offerId: row.offer_id,
     dailyBudget: row.daily_budget,
     lifetimeBudget: row.lifetime_budget,
     createdAt: row.created_at,
@@ -27,8 +29,7 @@ function rowToCampaign(row: CampaignRow): Campaign {
 
 export const campaignRepo = {
   findAll(): Campaign[] {
-    const rows = getDb().prepare('SELECT * FROM campaigns').all() as CampaignRow[];
-    return rows.map(rowToCampaign);
+    return (getDb().prepare('SELECT * FROM campaigns').all() as CampaignRow[]).map(rowToCampaign);
   },
 
   findById(id: string): Campaign | undefined {
@@ -36,13 +37,17 @@ export const campaignRepo = {
     return row ? rowToCampaign(row) : undefined;
   },
 
+  findByOffer(offerId: string): Campaign[] {
+    return (getDb().prepare('SELECT * FROM campaigns WHERE offer_id = ?').all(offerId) as CampaignRow[]).map(rowToCampaign);
+  },
+
   insert(campaign: Campaign): void {
     getDb().prepare(`
-      INSERT INTO campaigns (id, name, status, ad_review_status, daily_budget, lifetime_budget, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO campaigns (id, name, status, ad_review_status, offer_id, daily_budget, lifetime_budget, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       campaign.id, campaign.name, campaign.status, campaign.adReviewStatus,
-      campaign.dailyBudget, campaign.lifetimeBudget,
+      campaign.offerId, campaign.dailyBudget, campaign.lifetimeBudget,
       campaign.createdAt, campaign.updatedAt
     );
   },
@@ -57,5 +62,9 @@ export const campaignRepo = {
 
   updateAdReviewStatus(id: string, adReviewStatus: string): void {
     getDb().prepare(`UPDATE campaigns SET ad_review_status = ?, updated_at = datetime('now') WHERE id = ?`).run(adReviewStatus, id);
+  },
+
+  updateOffer(id: string, offerId: string | null): void {
+    getDb().prepare(`UPDATE campaigns SET offer_id = ?, updated_at = datetime('now') WHERE id = ?`).run(offerId, id);
   },
 };

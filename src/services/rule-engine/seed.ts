@@ -21,6 +21,8 @@ export function seedDefaultRules(): void {
       name: r.name,
       description: r.description,
       enabled: r.enabled,
+      tier: r.tier || 'universal',
+      offerId: r.offerId || null,
       entityLevel: r.entityLevel,
       conditions: r.conditions,
       action: r.action,

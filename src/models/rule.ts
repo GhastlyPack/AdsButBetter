@@ -10,11 +10,15 @@ export interface RuleCondition {
   threshold: number;
 }
 
+export type RuleTier = 'universal' | 'offer';
+
 export interface Rule {
   id: string;
   name: string;
   description: string;
   enabled: boolean;
+  tier: RuleTier;                         // 'universal' (L1) or 'offer' (L2)
+  offerId: string | null;                 // only for L2 rules
   entityLevel: EntityLevel;
   conditions: RuleCondition[];    // ALL must be true (AND logic)
   action: ActionType;

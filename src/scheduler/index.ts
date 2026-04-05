@@ -32,7 +32,7 @@ export async function runEvaluation(): Promise<{ evaluated: number; triggered: n
     await deleteMessages(discordMessageIds);
   }
 
-  const rules = ruleRepo.findEnabled();
+  const universalRules = ruleRepo.findUniversal();
   const { campaignRepo } = require('../db/repositories/campaign.repo');
   const campaigns = campaignRepo.findAll();
 
@@ -73,7 +73,15 @@ export async function runEvaluation(): Promise<{ evaluated: number; triggered: n
     const latestMetrics = metricsRepo.getLatest(campaign.id);
     if (!latestMetrics) continue;
 
-    const triggered = evaluateRules(latestMetrics, rules);
+    // L1: universal rules run on all campaigns
+    // L2: offer-specific rules only run on campaigns assigned to that offer
+    let applicableRules = [...universalRules];
+    if (campaign.offerId) {
+      const offerRules = ruleRepo.findByOffer(campaign.offerId);
+      applicableRules = [...applicableRules, ...offerRules];
+    }
+
+    const triggered = evaluateRules(latestMetrics, applicableRules);
 
     for (const t of triggered) {
       const recent = recommendationRepo.findRecentForEntity(

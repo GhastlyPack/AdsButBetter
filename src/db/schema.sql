@@ -1,8 +1,18 @@
+CREATE TABLE IF NOT EXISTS offers (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  niche TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS campaigns (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
   ad_review_status TEXT NOT NULL DEFAULT 'approved',
+  offer_id TEXT,
   daily_budget REAL NOT NULL,
   lifetime_budget REAL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -35,6 +45,8 @@ CREATE TABLE IF NOT EXISTS rules (
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   enabled INTEGER NOT NULL DEFAULT 1,
+  tier TEXT NOT NULL DEFAULT 'universal',  -- 'universal' (L1) or 'offer' (L2)
+  offer_id TEXT,                            -- only for L2 rules
   entity_level TEXT NOT NULL,
   conditions TEXT NOT NULL,       -- JSON array
   action TEXT NOT NULL,

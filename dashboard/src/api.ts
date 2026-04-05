@@ -46,11 +46,22 @@ export interface MetricsSnapshot {
   roas: number | null;
 }
 
+export interface Offer {
+  id: string;
+  name: string;
+  niche: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Rule {
   id: string;
   name: string;
   description: string;
   enabled: boolean;
+  tier: 'universal' | 'offer';
+  offerId: string | null;
   entityLevel: string;
   conditions: { metric: string; operator: string; threshold: number }[];
   action: string;
@@ -95,6 +106,14 @@ export const api = {
   pollMetrics: () => postJson<{ polled: number; evaluated: number; triggered: number; recommendations: string[] }>('/metrics/poll'),
   injectAnomaly: (campaignId: string, type: string, duration = 3) =>
     postJson('/test/anomaly', { campaignId, type, duration }),
+  getOffers: () => fetchJson<Offer[]>('/offers'),
+  createOffer: (offer: Partial<Offer>) => postJson<Offer>('/offers', offer),
+  updateOffer: (id: string, updates: Partial<Offer>) =>
+    fetch(`${BASE}/offers/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updates) }).then(r => r.json()),
+  deleteOffer: (id: string) =>
+    fetch(`${BASE}/offers/${id}`, { method: 'DELETE' }).then(r => r.json()),
+  assignCampaignOffer: (campaignId: string, offerId: string | null) =>
+    postJson(`/campaigns/${campaignId}/offer`, { offerId }),
   getRules: () => fetchJson<Rule[]>('/rules'),
   createRule: (rule: Partial<Rule>) => postJson<Rule>('/rules', rule),
   updateRule: (id: string, updates: Partial<Rule>) =>
