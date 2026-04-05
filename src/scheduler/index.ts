@@ -1,14 +1,24 @@
 import cron from 'node-cron';
 import { config } from '../config';
+import { DataProvider } from '../services/data-ingestion';
+import { metricsRepo } from '../db/repositories/metrics.repo';
 import { logger } from '../utils/logger';
 
-export function startScheduler(): void {
+export function startScheduler(dataProvider: DataProvider): void {
   const { metricsPollingIntervalMinutes, ruleEvaluationIntervalMinutes } = config.scheduler;
 
   // Poll metrics
   cron.schedule(`*/${metricsPollingIntervalMinutes} * * * *`, async () => {
-    logger.info('Job: polling metrics');
-    // TODO: Call data ingestion → store snapshots
+    try {
+      logger.info('Job: polling metrics');
+      const snapshots = await dataProvider.fetchAllMetrics();
+      for (const snapshot of snapshots) {
+        metricsRepo.insert(snapshot);
+      }
+      logger.info('Metrics polled', { count: snapshots.length });
+    } catch (err) {
+      logger.error('Metrics polling failed', { error: String(err) });
+    }
   });
 
   // Evaluate rules
