@@ -12,6 +12,7 @@ import { runEvaluation, restartScheduler } from '../scheduler';
 import { chat } from '../services/llm/chat';
 import { analyzeDecisionHistory, generateRuleSuggestions } from '../services/llm/feedback-analyzer';
 import { feedbackRepo } from '../db/repositories/feedback.repo';
+import { sendSuggestionAlert } from '../discord/alerts';
 import { runtimeSettings } from '../config';
 
 let systemEnabled = true;
@@ -370,6 +371,12 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     try {
       analyzeDecisionHistory(); // Update stats first
       const suggestions = await generateRuleSuggestions();
+
+      // Send each suggestion to Discord
+      for (const s of suggestions) {
+        await sendSuggestionAlert(s).catch(() => {});
+      }
+
       res.json({ generated: suggestions.length, suggestions });
     } catch (err) {
       res.status(500).json({ error: String(err) });

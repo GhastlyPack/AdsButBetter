@@ -5,6 +5,8 @@ import { executeAction } from '../services/execution';
 import { sendLogMessage } from './alerts';
 import { handleAskCommand, registerSlashCommands } from './commands/ask';
 import { chat } from '../services/llm/chat';
+import { feedbackRepo } from '../db/repositories/feedback.repo';
+import { ruleRepo } from '../db/repositories/rule.repo';
 import { logger } from '../utils/logger';
 
 // Per-user conversation history for @mention chats
@@ -80,6 +82,15 @@ export async function registerInteractions(): Promise<void> {
     }
 
     if (!interaction.isButton()) return;
+
+    // Handle rule suggestion buttons
+    if (interaction.customId.startsWith('approve_suggestion_') || interaction.customId.startsWith('deny_suggestion_')) {
+      const parts = interaction.customId.split('_');
+      const suggestionAction = parts[0]; // approve or deny
+      const suggestionId = parts.slice(2).join('_'); // everything after approve_suggestion_ or deny_suggestion_
+      await handleSuggestionButton(interaction, suggestionAction as 'approve' | 'deny', suggestionId);
+      return;
+    }
 
     const [action, recommendationId] = interaction.customId.split('_');
     if (!action || !recommendationId) return;
@@ -160,5 +171,73 @@ async function handleRecommendationButton(
   } catch (err) {
     logger.error('Failed to handle button interaction', { error: String(err) });
     await interaction.reply({ content: 'An error occurred processing this action.', flags: 64 }).catch(() => {});
+  }
+}
+
+async function handleSuggestionButton(
+  interaction: ButtonInteraction,
+  action: 'approve' | 'deny',
+  suggestionId: string
+): Promise<void> {
+  try {
+    const suggestion = feedbackRepo.findSuggestionById(suggestionId);
+    if (!suggestion) {
+      await interaction.reply({ content: 'Suggestion not found.', flags: 64 });
+      return;
+    }
+
+    if (suggestion.status !== 'pending') {
+      await interaction.reply({ content: `This suggestion has already been **${suggestion.status}**.`, flags: 64 });
+      return;
+    }
+
+    const userName = interaction.user.tag;
+
+    if (action === 'approve') {
+      // Create the rule
+      const now = new Date().toISOString();
+      ruleRepo.upsert({
+        id: `rule-${suggestion.id}`,
+        name: suggestion.name,
+        description: suggestion.description,
+        enabled: true,
+        tier: suggestion.tier as any,
+        offerId: suggestion.offerId,
+        entityLevel: 'campaign',
+        conditions: suggestion.conditions,
+        action: suggestion.action as any,
+        actionParams: suggestion.actionParams,
+        priority: suggestion.priority,
+        cooldownMinutes: suggestion.cooldownMinutes,
+        createdAt: now,
+        updatedAt: now,
+      });
+      feedbackRepo.updateSuggestionStatus(suggestionId, 'approved', userName);
+
+      const embed = EmbedBuilder.from(interaction.message.embeds[0])
+        .setColor(0x22c55e)
+        .addFields({ name: 'Decision', value: `**APPROVED** by ${userName} — Rule created` });
+
+      await interaction.update({ embeds: [embed], components: [] });
+
+      await sendLogMessage(
+        'Rule Suggestion APPROVED',
+        `**${suggestion.name}** was approved by ${userName} and created as a new rule.`,
+        0x22c55e
+      );
+    } else {
+      feedbackRepo.updateSuggestionStatus(suggestionId, 'denied', userName);
+
+      const embed = EmbedBuilder.from(interaction.message.embeds[0])
+        .setColor(0xef4444)
+        .addFields({ name: 'Decision', value: `**DENIED** by ${userName}` });
+
+      await interaction.update({ embeds: [embed], components: [] });
+    }
+
+    logger.info('Suggestion resolved via Discord', { suggestionId, action, resolvedBy: userName });
+  } catch (err) {
+    logger.error('Failed to handle suggestion button', { error: String(err) });
+    await interaction.reply({ content: 'An error occurred.', flags: 64 }).catch(() => {});
   }
 }

@@ -110,6 +110,79 @@ export async function deleteMessages(messageIds: string[]): Promise<void> {
   }
 }
 
+export async function sendSuggestionAlert(suggestion: {
+  id: string;
+  name: string;
+  description: string;
+  conditions: any[];
+  action: string;
+  actionParams: Record<string, number>;
+  reasoning: string;
+  tier: string;
+}): Promise<string | null> {
+  const client = getDiscordClient();
+  const channelId = config.discord.suggestionsChannelId;
+  if (!channelId) return null;
+
+  try {
+    const channel = await client.channels.fetch(channelId);
+    if (!channel || !(channel instanceof TextChannel)) return null;
+
+    const ACTION_LABELS: Record<string, string> = {
+      pause_campaign: 'Pause Campaign',
+      start_campaign: 'Start Campaign',
+      increase_budget: 'Increase Budget',
+      decrease_budget: 'Decrease Budget',
+    };
+
+    const actionLabel = ACTION_LABELS[suggestion.action] || suggestion.action;
+    const paramStr = suggestion.actionParams?.percentage ? ` by ${suggestion.actionParams.percentage}%` : '';
+    const conditionsStr = suggestion.conditions
+      .map((c: any) => `\`${c.metric} ${c.operator} ${c.threshold}\``)
+      .join(' AND ');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Rule Suggestion: ${suggestion.name}`)
+      .setDescription(suggestion.reasoning)
+      .addFields(
+        { name: 'Conditions', value: `IF ${conditionsStr}`, inline: false },
+        { name: 'Action', value: `${actionLabel}${paramStr}`, inline: true },
+        { name: 'Tier', value: suggestion.tier === 'universal' ? 'L1 Universal' : 'L2 Offer', inline: true },
+      )
+      .setColor(0x3bb8e8)
+      .setTimestamp()
+      .setFooter({ text: `ID: ${suggestion.id}` });
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`approve_suggestion_${suggestion.id}`)
+        .setLabel('Approve Rule')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('✅'),
+      new ButtonBuilder()
+        .setCustomId(`deny_suggestion_${suggestion.id}`)
+        .setLabel('Deny')
+        .setStyle(ButtonStyle.Danger)
+        .setEmoji('❌'),
+    );
+
+    const managerRoleId = config.discord.managerRoleId;
+    const pingContent = managerRoleId ? `<@&${managerRoleId}> New rule suggestion from AI:` : '';
+
+    const message = await channel.send({
+      content: pingContent,
+      embeds: [embed],
+      components: [row],
+    });
+
+    logger.info('Sent rule suggestion to Discord', { suggestionId: suggestion.id, messageId: message.id });
+    return message.id;
+  } catch (err) {
+    logger.error('Failed to send suggestion alert', { error: String(err) });
+    return null;
+  }
+}
+
 export async function sendLogMessage(title: string, description: string, color: number = 0x7a8fa3): Promise<void> {
   const client = getDiscordClient();
   const channelId = config.discord.logsChannelId;

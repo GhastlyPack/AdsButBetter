@@ -12,6 +12,7 @@ export const config = {
     alertsChannelId: process.env.DISCORD_ALERTS_CHANNEL_ID || '',
     logsChannelId: process.env.DISCORD_LOGS_CHANNEL_ID || '',
     managerRoleId: process.env.DISCORD_MANAGER_ROLE_ID || '',
+    suggestionsChannelId: process.env.DISCORD_SUGGESTIONS_CHANNEL_ID || '',
   },
 
   scheduler: {

@@ -54,6 +54,21 @@ export async function ensureAiChatChannel(): Promise<void> {
       c => c.name === 'AdsButBetter' && c.type === ChannelType.GuildCategory
     );
 
+    // Also ensure #rule-suggestions exists
+    const suggestionsExists = guild.channels.cache.find(
+      c => c.name === 'rule-suggestions' && c.type === ChannelType.GuildText
+    );
+    if (!suggestionsExists) {
+      const suggestionsChannel = await guild.channels.create({
+        name: 'rule-suggestions',
+        type: ChannelType.GuildText,
+        parent: category?.id,
+        topic: 'AI-suggested rules for manager approval',
+        reason: 'AdsButBetter rule suggestions channel',
+      });
+      logger.info('Created #rule-suggestions channel', { channelId: suggestionsChannel.id });
+    }
+
     const channel = await guild.channels.create({
       name: 'ai-chat',
       type: ChannelType.GuildText,
