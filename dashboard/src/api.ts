@@ -20,16 +20,17 @@ export interface Campaign {
   id: string;
   name: string;
   status: string;
-  daily_budget: number;
-  lifetime_budget: number | null;
-  created_at: string;
-  updated_at: string;
+  adReviewStatus: string;
+  dailyBudget: number;
+  lifetimeBudget: number | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MetricsSnapshot {
   id: string;
-  entity_id: string;
-  entity_level: string;
+  entityId: string;
+  entityLevel: string;
   timestamp: string;
   spend: number;
   impressions: number;
@@ -38,8 +39,8 @@ export interface MetricsSnapshot {
   ctr: number;
   cpc: number;
   cpl: number;
-  registration_rate: number;
-  qualified_leads: number | null;
+  registrationRate: number;
+  qualifiedLeads: number | null;
   cpql: number | null;
   revenue: number | null;
   roas: number | null;
@@ -71,6 +72,7 @@ export interface Recommendation {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  discord_message_id: string | null;
 }
 
 export const api = {

@@ -1,13 +1,39 @@
 import { getDb } from '../index';
 import { Campaign } from '../../models';
 
+interface CampaignRow {
+  id: string;
+  name: string;
+  status: string;
+  ad_review_status: string;
+  daily_budget: number;
+  lifetime_budget: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function rowToCampaign(row: CampaignRow): Campaign {
+  return {
+    id: row.id,
+    name: row.name,
+    status: row.status as Campaign['status'],
+    adReviewStatus: row.ad_review_status as Campaign['adReviewStatus'],
+    dailyBudget: row.daily_budget,
+    lifetimeBudget: row.lifetime_budget,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 export const campaignRepo = {
   findAll(): Campaign[] {
-    return getDb().prepare('SELECT * FROM campaigns').all() as Campaign[];
+    const rows = getDb().prepare('SELECT * FROM campaigns').all() as CampaignRow[];
+    return rows.map(rowToCampaign);
   },
 
   findById(id: string): Campaign | undefined {
-    return getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(id) as Campaign | undefined;
+    const row = getDb().prepare('SELECT * FROM campaigns WHERE id = ?').get(id) as CampaignRow | undefined;
+    return row ? rowToCampaign(row) : undefined;
   },
 
   insert(campaign: Campaign): void {

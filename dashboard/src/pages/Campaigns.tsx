@@ -125,7 +125,7 @@ export default function CampaignsPage() {
                 <tr key={c.id} className={`clickable-row ${selectedId === c.id ? 'selected' : ''}`} onClick={() => setSelectedId(c.id === selectedId ? null : c.id)}>
                   <td><div className="campaign-name">{c.name}</div><div className="campaign-id">{c.id}</div></td>
                   <td><StatusBadge status={c.status} /></td>
-                  <td>{formatCurrency(c.daily_budget)}</td>
+                  <td>{formatCurrency(c.dailyBudget)}</td>
                   <td>{m ? formatCurrency(m.spend) : '-'}</td>
                   <td>{m ? formatNumber(m.impressions) : '-'}</td>
                   <td>{m ? formatNumber(m.clicks) : '-'}</td>
@@ -163,7 +163,7 @@ export default function CampaignsPage() {
                   <MetricCard label="CPC" value={formatCurrency(latest.cpc)} />
                   <MetricCard label="CTR" value={formatPercent(latest.ctr)} />
                   <MetricCard label="CPL" value={formatCurrency(latest.cpl)} color={latest.cpl > 75 ? 'var(--red)' : latest.cpl < 30 ? 'var(--green)' : undefined} />
-                  <MetricCard label="Reg Rate" value={formatPercent(latest.registration_rate)} />
+                  <MetricCard label="Reg Rate" value={formatPercent(latest.registrationRate)} />
                 </div>
                 <h4 style={{ margin: '20px 0 10px', fontSize: 14, color: 'var(--text-secondary)' }}>History ({detailMetrics.length} snapshots)</h4>
                 <div className="history-table-wrap">

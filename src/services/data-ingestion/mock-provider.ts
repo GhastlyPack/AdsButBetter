@@ -48,7 +48,7 @@ export class MockDataProvider implements DataProvider {
 
     const ctr = raw.impressions > 0 ? raw.clicks / raw.impressions : 0;
     const cpc = raw.clicks > 0 ? raw.spend / raw.clicks : 0;
-    const cpl = raw.leads > 0 ? raw.spend / raw.leads : 0;
+    const cpl = raw.leads > 0 ? raw.spend / raw.leads : (raw.spend > 0 ? 99999 : 0);
     const registrationRate = raw.clicks > 0 ? raw.leads / raw.clicks : 0;
 
     return {
@@ -87,8 +87,8 @@ export class MockDataProvider implements DataProvider {
     if (anomaly) {
       switch (anomaly.type) {
         case 'spike_cpl':
-          // Leads tank but spend stays high
-          leads = Math.max(1, Math.round(leads * 0.1));
+          // Leads tank but spend stays high → CPL spikes
+          leads = Math.max(1, Math.round(leads * 0.05));
           break;
         case 'zero_leads':
           // Getting clicks but no registrations
