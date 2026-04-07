@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { api, Campaign, MetricsSnapshot } from '../api';
+import { useState, useEffect, useCallback, Fragment } from 'react';
+import { api, Campaign, MetricsSnapshot, AdSet, Ad } from '../api';
 
 function formatNumber(n: number): string {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
@@ -42,6 +42,60 @@ export default function CampaignsPage() {
   const [loading, setLoading] = useState(false);
   const [lastPollResult, setLastPollResult] = useState<string | null>(null);
 
+  // Expandable hierarchy state
+  const [expandedCampaigns, setExpandedCampaigns] = useState<Set<string>>(new Set());
+  const [expandedAdSets, setExpandedAdSets] = useState<Set<string>>(new Set());
+  const [adsetsByCampaign, setAdsetsByCampaign] = useState<Record<string, AdSet[]>>({});
+  const [adsByAdSet, setAdsByAdSet] = useState<Record<string, Ad[]>>({});
+
+  const toggleCampaign = async (campaignId: string) => {
+    const next = new Set(expandedCampaigns);
+    if (next.has(campaignId)) {
+      next.delete(campaignId);
+    } else {
+      next.add(campaignId);
+      if (!adsetsByCampaign[campaignId]) {
+        try {
+          const adsets = await api.getCampaignAdSets(campaignId);
+          setAdsetsByCampaign(prev => ({ ...prev, [campaignId]: adsets }));
+        } catch {}
+      }
+    }
+    setExpandedCampaigns(next);
+  };
+
+  const toggleAdSet = async (adSetId: string) => {
+    const next = new Set(expandedAdSets);
+    if (next.has(adSetId)) {
+      next.delete(adSetId);
+    } else {
+      next.add(adSetId);
+      if (!adsByAdSet[adSetId]) {
+        try {
+          const ads = await api.getAdSetAds(adSetId);
+          setAdsByAdSet(prev => ({ ...prev, [adSetId]: ads }));
+        } catch {}
+      }
+    }
+    setExpandedAdSets(next);
+  };
+
+  // Refresh expanded children when poll happens
+  const refreshExpandedChildren = async () => {
+    for (const campId of expandedCampaigns) {
+      try {
+        const adsets = await api.getCampaignAdSets(campId);
+        setAdsetsByCampaign(prev => ({ ...prev, [campId]: adsets }));
+      } catch {}
+    }
+    for (const adSetId of expandedAdSets) {
+      try {
+        const ads = await api.getAdSetAds(adSetId);
+        setAdsByAdSet(prev => ({ ...prev, [adSetId]: ads }));
+      } catch {}
+    }
+  };
+
   const loadCampaigns = useCallback(async () => {
     try {
       const camps = await api.getCampaigns();
@@ -75,6 +129,7 @@ export default function CampaignsPage() {
       const result = await api.pollMetrics();
       setLastPollResult(`Polled ${result.polled} campaigns. ${result.triggered} rules triggered.`);
       await loadCampaigns();
+      await refreshExpandedChildren();
     } catch {
       setLastPollResult('Poll failed');
     }
@@ -88,6 +143,7 @@ export default function CampaignsPage() {
       await api.injectAnomaly(selectedId, type);
       await api.pollMetrics();
       await loadCampaigns();
+      await refreshExpandedChildren();
     } catch {}
     setLoading(false);
   };
@@ -147,7 +203,7 @@ export default function CampaignsPage() {
         <table>
           <thead>
             <tr>
-              <th>Campaign</th>
+              <th>Name</th>
               <th>Status</th>
               <th>Budget</th>
               <th>Spend</th>
@@ -162,19 +218,112 @@ export default function CampaignsPage() {
           <tbody>
             {campaigns.map(c => {
               const m = latestMetrics[c.id];
+              const isExpanded = expandedCampaigns.has(c.id);
+              const adsets = adsetsByCampaign[c.id] || [];
               return (
-                <tr key={c.id} className={`clickable-row ${selectedId === c.id ? 'selected' : ''}`} onClick={() => setSelectedId(c.id === selectedId ? null : c.id)}>
-                  <td><div className="campaign-name">{c.name}</div><div className="campaign-id">{c.id}</div></td>
-                  <td><StatusBadge status={c.status} /></td>
-                  <td>{formatCurrency(c.dailyBudget)}</td>
-                  <td>{m ? formatCurrency(m.spend) : '-'}</td>
-                  <td>{m ? formatNumber(m.impressions) : '-'}</td>
-                  <td>{m ? formatNumber(m.clicks) : '-'}</td>
-                  <td>{m ? m.leads : '-'}</td>
-                  <td>{m ? formatCurrency(m.cpc) : '-'}</td>
-                  <td>{m ? formatPercent(m.ctr) : '-'}</td>
-                  <td className={m && m.cpl > 75 ? 'text-red' : m && m.cpl < 30 ? 'text-green' : ''}>{m ? formatCurrency(m.cpl) : '-'}</td>
-                </tr>
+                <Fragment key={c.id}>
+                  <tr className={`clickable-row ${selectedId === c.id ? 'selected' : ''}`}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button
+                          className="expand-btn"
+                          onClick={(e) => { e.stopPropagation(); toggleCampaign(c.id); }}
+                          title={isExpanded ? 'Collapse' : 'Expand'}
+                        >
+                          {isExpanded ? '▼' : '▶'}
+                        </button>
+                        <div onClick={() => setSelectedId(c.id === selectedId ? null : c.id)} style={{ cursor: 'pointer', flex: 1 }}>
+                          <div className="campaign-name">{c.name}</div>
+                          <div className="campaign-id">{c.id}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><StatusBadge status={c.status} /></td>
+                    <td>{formatCurrency(c.dailyBudget)}</td>
+                    <td>{m ? formatCurrency(m.spend) : '-'}</td>
+                    <td>{m ? formatNumber(m.impressions) : '-'}</td>
+                    <td>{m ? formatNumber(m.clicks) : '-'}</td>
+                    <td>{m ? m.leads : '-'}</td>
+                    <td>{m ? formatCurrency(m.cpc) : '-'}</td>
+                    <td>{m ? formatPercent(m.ctr) : '-'}</td>
+                    <td className={m && m.cpl > 75 && m.cpl < 99999 ? 'text-red' : m && m.cpl < 30 ? 'text-green' : ''}>{m ? formatCurrency(m.cpl) : '-'}</td>
+                  </tr>
+
+                  {isExpanded && adsets.length === 0 && (
+                    <tr className="hierarchy-empty-row">
+                      <td colSpan={10} style={{ paddingLeft: 48 }}>
+                        <span className="text-secondary" style={{ fontSize: 12 }}>No ad sets — poll metrics to populate</span>
+                      </td>
+                    </tr>
+                  )}
+
+                  {isExpanded && adsets.map(adset => {
+                    const am = adset.latestMetrics;
+                    const adSetExpanded = expandedAdSets.has(adset.id);
+                    const ads = adsByAdSet[adset.id] || [];
+                    return (
+                      <Fragment key={adset.id}>
+                        <tr className="hierarchy-row hierarchy-adset">
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 24 }}>
+                              <button
+                                className="expand-btn"
+                                onClick={() => toggleAdSet(adset.id)}
+                                title={adSetExpanded ? 'Collapse' : 'Expand'}
+                              >
+                                {adSetExpanded ? '▼' : '▶'}
+                              </button>
+                              <div>
+                                <div className="campaign-name">{adset.name}</div>
+                                <div className="campaign-id">{adset.id}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td><StatusBadge status={adset.status} /></td>
+                          <td>{formatCurrency(adset.dailyBudget)}</td>
+                          <td>{am ? formatCurrency(am.spend) : '-'}</td>
+                          <td>{am ? formatNumber(am.impressions) : '-'}</td>
+                          <td>{am ? formatNumber(am.clicks) : '-'}</td>
+                          <td>{am ? am.leads : '-'}</td>
+                          <td>{am ? formatCurrency(am.cpc) : '-'}</td>
+                          <td>{am ? formatPercent(am.ctr) : '-'}</td>
+                          <td className={am && am.cpl > 75 && am.cpl < 99999 ? 'text-red' : am && am.cpl < 30 ? 'text-green' : ''}>{am ? formatCurrency(am.cpl) : '-'}</td>
+                        </tr>
+
+                        {adSetExpanded && ads.length === 0 && (
+                          <tr className="hierarchy-empty-row">
+                            <td colSpan={10} style={{ paddingLeft: 72 }}>
+                              <span className="text-secondary" style={{ fontSize: 12 }}>No ads in this ad set</span>
+                            </td>
+                          </tr>
+                        )}
+
+                        {adSetExpanded && ads.map(ad => {
+                          const adm = ad.latestMetrics;
+                          return (
+                            <tr key={ad.id} className="hierarchy-row hierarchy-ad">
+                              <td>
+                                <div style={{ paddingLeft: 56 }}>
+                                  <div className="campaign-name">{ad.name}</div>
+                                  <div className="campaign-id">{ad.id}</div>
+                                </div>
+                              </td>
+                              <td><StatusBadge status={ad.status} /></td>
+                              <td>—</td>
+                              <td>{adm ? formatCurrency(adm.spend) : '-'}</td>
+                              <td>{adm ? formatNumber(adm.impressions) : '-'}</td>
+                              <td>{adm ? formatNumber(adm.clicks) : '-'}</td>
+                              <td>{adm ? adm.leads : '-'}</td>
+                              <td>{adm ? formatCurrency(adm.cpc) : '-'}</td>
+                              <td>{adm ? formatPercent(adm.ctr) : '-'}</td>
+                              <td className={adm && adm.cpl > 75 && adm.cpl < 99999 ? 'text-red' : adm && adm.cpl < 30 ? 'text-green' : ''}>{adm ? formatCurrency(adm.cpl) : '-'}</td>
+                            </tr>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
               );
             })}
           </tbody>

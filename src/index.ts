@@ -7,7 +7,7 @@ import { initDiscord, shutdownDiscord } from './discord/bot';
 import { registerInteractions } from './discord/interactions';
 import { setupDiscordServer } from './discord/setup';
 import { startScheduler } from './scheduler';
-import { seedMockCampaigns } from './services/data-ingestion/seed';
+import { seedMockCampaigns, seedMockAdSets, seedMockAds } from './services/data-ingestion/seed';
 import { seedDefaultRules } from './services/rule-engine/seed';
 import { SwitchableDataProvider } from './services/data-ingestion/switchable-provider';
 import { createApiRouter } from './api';
@@ -19,8 +19,10 @@ async function main() {
   // Initialize database
   initDb();
 
-  // Seed mock campaigns and rules
+  // Seed mock campaigns/adsets/ads and rules
   seedMockCampaigns();
+  seedMockAdSets();
+  seedMockAds();
   seedDefaultRules();
 
   // Initialize data provider (switchable between mock and Meta)

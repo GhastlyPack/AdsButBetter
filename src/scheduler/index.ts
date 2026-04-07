@@ -169,16 +169,31 @@ export function restartScheduler(): void {
 function scheduleJobs(): void {
   const { metricsPollingIntervalMinutes, ruleEvaluationIntervalMinutes } = runtimeSettings;
 
-  // Poll metrics
+  // Poll metrics for campaigns, adsets, and ads
   const pollTask = cron.schedule(`*/${metricsPollingIntervalMinutes} * * * *`, async () => {
     if (!isSystemEnabled()) { logger.debug('System disabled, skipping poll'); return; }
     try {
       logger.info('Job: polling metrics');
-      const snapshots = await currentDataProvider.fetchAllMetrics();
-      for (const snapshot of snapshots) {
+      const campaignSnaps = await currentDataProvider.fetchAllMetrics();
+      for (const snapshot of campaignSnaps) {
         metricsRepo.insert(snapshot);
       }
-      logger.info('Metrics polled', { count: snapshots.length });
+
+      // Poll adsets and ads if available (mock provider)
+      const provider: any = currentDataProvider;
+      let adsetCount = 0;
+      let adCount = 0;
+      if (typeof provider.fetchAllAdSetMetrics === 'function') {
+        const adsetSnaps = await provider.fetchAllAdSetMetrics();
+        for (const s of adsetSnaps) metricsRepo.insert(s);
+        adsetCount = adsetSnaps.length;
+      }
+      if (typeof provider.fetchAllAdMetrics === 'function') {
+        const adSnaps = await provider.fetchAllAdMetrics();
+        for (const s of adSnaps) metricsRepo.insert(s);
+        adCount = adSnaps.length;
+      }
+      logger.info('Metrics polled', { campaigns: campaignSnaps.length, adsets: adsetCount, ads: adCount });
     } catch (err) {
       logger.error('Metrics polling failed', { error: String(err) });
     }

@@ -274,6 +274,56 @@ td {
   border-left: 3px solid var(--accent);
 }
 
+/* Expand button */
+.expand-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.expand-btn:hover {
+  background: var(--bg-card);
+  color: var(--accent);
+}
+
+/* Hierarchy rows */
+.hierarchy-row td {
+  background: var(--bg-secondary);
+  font-size: 13px;
+}
+
+.hierarchy-row.hierarchy-adset td {
+  background: rgba(59, 184, 232, 0.04);
+  border-left: 2px solid var(--accent);
+}
+
+.hierarchy-row.hierarchy-ad td {
+  background: rgba(68, 212, 146, 0.03);
+  border-left: 2px solid var(--green);
+}
+
+.hierarchy-empty-row td {
+  background: var(--bg-secondary);
+  padding: 8px 12px;
+}
+
+.hierarchy-row .campaign-name {
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.hierarchy-row.hierarchy-ad .campaign-name {
+  font-weight: 400;
+  color: var(--text-secondary);
+}
+
 /* Cards */
 .card {
   background: var(--bg-card);

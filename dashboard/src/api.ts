@@ -28,6 +28,28 @@ export interface Campaign {
   updatedAt: string;
 }
 
+export interface AdSet {
+  id: string;
+  campaignId: string;
+  name: string;
+  status: string;
+  dailyBudget: number;
+  createdAt: string;
+  updatedAt: string;
+  latestMetrics?: MetricsSnapshot | null;
+}
+
+export interface Ad {
+  id: string;
+  adSetId: string;
+  campaignId: string;
+  name: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  latestMetrics?: MetricsSnapshot | null;
+}
+
 export interface MetricsSnapshot {
   id: string;
   entityId: string;
@@ -100,6 +122,10 @@ export const api = {
   getCampaigns: () => fetchJson<Campaign[]>('/campaigns'),
   getCampaignMetrics: (id: string, limit = 24) =>
     fetchJson<MetricsSnapshot[]>(`/campaigns/${id}/metrics?limit=${limit}`),
+  getCampaignAdSets: (campaignId: string) =>
+    fetchJson<AdSet[]>(`/campaigns/${campaignId}/adsets`),
+  getAdSetAds: (adSetId: string) =>
+    fetchJson<Ad[]>(`/adsets/${adSetId}/ads`),
   getLatestMetrics: (id: string) =>
     fetchJson<MetricsSnapshot>(`/campaigns/${id}/metrics/latest`),
   submitManualMetrics: (data: { entityId: string; spend: number; impressions: number; clicks: number; leads: number }) =>

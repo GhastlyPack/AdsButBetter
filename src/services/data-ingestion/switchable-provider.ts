@@ -31,6 +31,16 @@ export class SwitchableDataProvider implements DataProvider {
     return this.getActive().fetchAllMetrics();
   }
 
+  async fetchAllAdSetMetrics(): Promise<MetricsSnapshot[]> {
+    if (runtimeSettings.dataSource === 'meta') return [];
+    return this.mock.fetchAllAdSetMetrics();
+  }
+
+  async fetchAllAdMetrics(): Promise<MetricsSnapshot[]> {
+    if (runtimeSettings.dataSource === 'meta') return [];
+    return this.mock.fetchAllAdMetrics();
+  }
+
   setSource(source: 'mock' | 'meta'): void {
     runtimeSettings.dataSource = source;
     logger.info('Data source switched', { source });

@@ -1,49 +1,123 @@
 import { randomUUID } from 'crypto';
 import { DataProvider } from './index';
-import { MetricsSnapshot } from '../../models';
-import { MOCK_CAMPAIGNS, MockCampaignProfile } from './mock-campaigns';
+import { MetricsSnapshot, EntityLevel } from '../../models';
+import { MOCK_CAMPAIGNS, MOCK_ADSETS, MOCK_ADS, MockCampaignProfile, MockAdSetProfile, MockAdProfile } from './mock-campaigns';
 import { logger } from '../../utils/logger';
 
 export type AnomalyType = 'spike_cpl' | 'zero_leads' | 'zero_impressions' | 'budget_blowout';
 
 interface AnomalyConfig {
-  campaignId: string;
+  entityId: string;
   type: AnomalyType;
   duration: number;
   remaining: number;
+}
+
+interface PerfProfile {
+  baseImpressions: number;
+  baseCtr: number;
+  baseRegistrationRate: number;
+  volatility: number;
+  budget: number;
 }
 
 export class MockDataProvider implements DataProvider {
   private callCount = 0;
   private anomalies: AnomalyConfig[] = [];
 
-  injectAnomaly(campaignId: string, type: AnomalyType, duration: number = 3): void {
-    this.anomalies.push({ campaignId, type, duration, remaining: duration });
-    logger.info('Anomaly injected', { campaignId, type, duration });
+  injectAnomaly(entityId: string, type: AnomalyType, duration: number = 3): void {
+    this.anomalies.push({ entityId, type, duration, remaining: duration });
+    logger.info('Anomaly injected', { entityId, type, duration });
   }
 
   async fetchMetrics(entityId: string): Promise<MetricsSnapshot> {
-    const profile = MOCK_CAMPAIGNS.find(c => c.campaign.id === entityId);
-    if (!profile) {
-      throw new Error(`No mock campaign found for entity ${entityId}`);
+    // Try campaign first, then adset, then ad
+    const campaign = MOCK_CAMPAIGNS.find(c => c.campaign.id === entityId);
+    if (campaign) {
+      this.callCount++;
+      return this.generateSnapshot(entityId, 'campaign', {
+        baseImpressions: campaign.baseImpressions,
+        baseCtr: campaign.baseCtr,
+        baseRegistrationRate: campaign.baseRegistrationRate,
+        volatility: campaign.volatility,
+        budget: campaign.campaign.dailyBudget,
+      });
     }
-    this.callCount++;
-    return this.generateSnapshot(profile);
+    const adset = MOCK_ADSETS.find(a => a.adset.id === entityId);
+    if (adset) {
+      this.callCount++;
+      return this.generateSnapshot(entityId, 'adset', {
+        baseImpressions: adset.baseImpressions,
+        baseCtr: adset.baseCtr,
+        baseRegistrationRate: adset.baseRegistrationRate,
+        volatility: adset.volatility,
+        budget: adset.adset.dailyBudget,
+      });
+    }
+    const ad = MOCK_ADS.find(a => a.ad.id === entityId);
+    if (ad) {
+      this.callCount++;
+      // Ads don't have their own budget — derive proportional spend from impressions
+      const adset = MOCK_ADSETS.find(s => s.adset.id === ad.ad.adSetId);
+      const budget = adset ? adset.adset.dailyBudget : 100;
+      return this.generateSnapshot(entityId, 'ad', {
+        baseImpressions: ad.baseImpressions,
+        baseCtr: ad.baseCtr,
+        baseRegistrationRate: ad.baseRegistrationRate,
+        volatility: ad.volatility,
+        budget,
+      });
+    }
+    throw new Error(`No mock entity found for ${entityId}`);
   }
 
   async fetchAllMetrics(): Promise<MetricsSnapshot[]> {
     this.callCount++;
     return MOCK_CAMPAIGNS
       .filter(c => c.campaign.status === 'active')
-      .map(profile => this.generateSnapshot(profile));
+      .map(profile => this.generateSnapshot(profile.campaign.id, 'campaign', {
+        baseImpressions: profile.baseImpressions,
+        baseCtr: profile.baseCtr,
+        baseRegistrationRate: profile.baseRegistrationRate,
+        volatility: profile.volatility,
+        budget: profile.campaign.dailyBudget,
+      }));
+  }
+
+  async fetchAllAdSetMetrics(): Promise<MetricsSnapshot[]> {
+    return MOCK_ADSETS
+      .filter(a => a.adset.status === 'active')
+      .map(profile => this.generateSnapshot(profile.adset.id, 'adset', {
+        baseImpressions: profile.baseImpressions,
+        baseCtr: profile.baseCtr,
+        baseRegistrationRate: profile.baseRegistrationRate,
+        volatility: profile.volatility,
+        budget: profile.adset.dailyBudget,
+      }));
+  }
+
+  async fetchAllAdMetrics(): Promise<MetricsSnapshot[]> {
+    return MOCK_ADS
+      .filter(a => a.ad.status === 'active')
+      .map(profile => {
+        const adset = MOCK_ADSETS.find(s => s.adset.id === profile.ad.adSetId);
+        const budget = adset ? adset.adset.dailyBudget : 100;
+        return this.generateSnapshot(profile.ad.id, 'ad', {
+          baseImpressions: profile.baseImpressions,
+          baseCtr: profile.baseCtr,
+          baseRegistrationRate: profile.baseRegistrationRate,
+          volatility: profile.volatility,
+          budget,
+        });
+      });
   }
 
   getCampaigns(): MockCampaignProfile[] {
     return MOCK_CAMPAIGNS;
   }
 
-  private generateSnapshot(profile: MockCampaignProfile): MetricsSnapshot {
-    const anomaly = this.getActiveAnomaly(profile.campaign.id);
+  private generateSnapshot(entityId: string, entityLevel: EntityLevel, profile: PerfProfile): MetricsSnapshot {
+    const anomaly = this.getActiveAnomaly(entityId);
     const raw = this.generateRawMetrics(profile, anomaly);
 
     const ctr = raw.impressions > 0 ? raw.clicks / raw.impressions : 0;
@@ -53,8 +127,8 @@ export class MockDataProvider implements DataProvider {
 
     return {
       id: randomUUID(),
-      entityId: profile.campaign.id,
-      entityLevel: 'campaign',
+      entityId,
+      entityLevel,
       timestamp: new Date().toISOString(),
       spend: round(raw.spend),
       impressions: Math.round(raw.impressions),
@@ -64,7 +138,6 @@ export class MockDataProvider implements DataProvider {
       cpc: round(cpc),
       cpl: round(cpl),
       registrationRate: round(registrationRate, 4),
-      // GHL integration fields — null until connected
       qualifiedLeads: null,
       cpql: null,
       revenue: null,
@@ -73,11 +146,10 @@ export class MockDataProvider implements DataProvider {
   }
 
   private generateRawMetrics(
-    profile: MockCampaignProfile,
+    profile: PerfProfile,
     anomaly: AnomalyConfig | null
   ): { spend: number; impressions: number; clicks: number; leads: number } {
-    const { baseImpressions, baseCtr, baseRegistrationRate, volatility } = profile;
-    const budget = profile.campaign.dailyBudget;
+    const { baseImpressions, baseCtr, baseRegistrationRate, volatility, budget } = profile;
 
     let impressions = vary(baseImpressions, volatility);
     let clicks = Math.round(impressions * vary(baseCtr, volatility));
@@ -87,11 +159,9 @@ export class MockDataProvider implements DataProvider {
     if (anomaly) {
       switch (anomaly.type) {
         case 'spike_cpl':
-          // Leads tank but spend stays high → CPL spikes
           leads = Math.max(1, Math.round(leads * 0.05));
           break;
         case 'zero_leads':
-          // Getting clicks but no registrations
           leads = 0;
           break;
         case 'zero_impressions':
@@ -116,8 +186,8 @@ export class MockDataProvider implements DataProvider {
     };
   }
 
-  private getActiveAnomaly(campaignId: string): AnomalyConfig | null {
-    const idx = this.anomalies.findIndex(a => a.campaignId === campaignId && a.remaining > 0);
+  private getActiveAnomaly(entityId: string): AnomalyConfig | null {
+    const idx = this.anomalies.findIndex(a => a.entityId === entityId && a.remaining > 0);
     if (idx === -1) return null;
 
     const anomaly = this.anomalies[idx];
@@ -125,7 +195,7 @@ export class MockDataProvider implements DataProvider {
 
     if (anomaly.remaining <= 0) {
       this.anomalies.splice(idx, 1);
-      logger.info('Anomaly expired', { campaignId, type: anomaly.type });
+      logger.info('Anomaly expired', { entityId, type: anomaly.type });
     }
 
     return anomaly;

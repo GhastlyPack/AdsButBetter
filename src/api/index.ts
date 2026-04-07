@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import { campaignRepo } from '../db/repositories/campaign.repo';
+import { adsetRepo } from '../db/repositories/adset.repo';
+import { adRepo } from '../db/repositories/ad.repo';
 import { metricsRepo } from '../db/repositories/metrics.repo';
 import { ruleRepo } from '../db/repositories/rule.repo';
 import { recommendationRepo } from '../db/repositories/recommendation.repo';
@@ -144,6 +146,65 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     res.json(campaign);
   });
 
+  // AdSets
+  router.get('/campaigns/:id/adsets', (req, res) => {
+    const adsets = adsetRepo.findByCampaign(req.params.id);
+    const withMetrics = adsets.map(a => {
+      const latest = metricsRepo.getLatest(a.id);
+      return { ...a, latestMetrics: latest || null };
+    });
+    res.json(withMetrics);
+  });
+
+  router.get('/adsets/:id', (req, res) => {
+    const adset = adsetRepo.findById(req.params.id);
+    if (!adset) return res.status(404).json({ error: 'AdSet not found' });
+    res.json(adset);
+  });
+
+  router.get('/adsets/:id/metrics', (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 24;
+    res.json(metricsRepo.getHistory(req.params.id, limit));
+  });
+
+  router.get('/adsets/:id/metrics/latest', (req, res) => {
+    const latest = metricsRepo.getLatest(req.params.id);
+    if (!latest) return res.status(404).json({ error: 'No metrics found' });
+    res.json(latest);
+  });
+
+  // Ads
+  router.get('/adsets/:id/ads', (req, res) => {
+    const ads = adRepo.findByAdSet(req.params.id);
+    const withMetrics = ads.map(a => {
+      const latest = metricsRepo.getLatest(a.id);
+      return { ...a, latestMetrics: latest || null };
+    });
+    res.json(withMetrics);
+  });
+
+  router.get('/campaigns/:id/ads', (req, res) => {
+    const ads = adRepo.findByCampaign(req.params.id);
+    res.json(ads);
+  });
+
+  router.get('/ads/:id', (req, res) => {
+    const ad = adRepo.findById(req.params.id);
+    if (!ad) return res.status(404).json({ error: 'Ad not found' });
+    res.json(ad);
+  });
+
+  router.get('/ads/:id/metrics', (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 24;
+    res.json(metricsRepo.getHistory(req.params.id, limit));
+  });
+
+  router.get('/ads/:id/metrics/latest', (req, res) => {
+    const latest = metricsRepo.getLatest(req.params.id);
+    if (!latest) return res.status(404).json({ error: 'No metrics found' });
+    res.json(latest);
+  });
+
   // Campaign offer assignment
   router.post('/campaigns/:id/offer', (req, res) => {
     const { offerId } = req.body;
@@ -242,8 +303,19 @@ export function createApiRouter(dataProvider: SwitchableDataProvider): Router {
     for (const snapshot of snapshots) {
       metricsRepo.insert(snapshot);
     }
+    // Also poll adsets and ads
+    const adsetSnaps = await dataProvider.fetchAllAdSetMetrics();
+    for (const s of adsetSnaps) metricsRepo.insert(s);
+    const adSnaps = await dataProvider.fetchAllAdMetrics();
+    for (const s of adSnaps) metricsRepo.insert(s);
+
     const evalResult = await runEvaluation();
-    res.json({ polled: snapshots.length, ...evalResult });
+    res.json({
+      polled: snapshots.length,
+      adsetsPolled: adsetSnaps.length,
+      adsPolled: adSnaps.length,
+      ...evalResult,
+    });
   });
 
   // Rules

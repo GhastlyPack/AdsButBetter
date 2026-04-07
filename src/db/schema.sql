@@ -19,6 +19,31 @@ CREATE TABLE IF NOT EXISTS campaigns (
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS adsets (
+  id TEXT PRIMARY KEY,
+  campaign_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  daily_budget REAL NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_adsets_campaign ON adsets(campaign_id);
+
+CREATE TABLE IF NOT EXISTS ads (
+  id TEXT PRIMARY KEY,
+  adset_id TEXT NOT NULL,
+  campaign_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_ads_adset ON ads(adset_id);
+CREATE INDEX IF NOT EXISTS idx_ads_campaign ON ads(campaign_id);
+
 CREATE TABLE IF NOT EXISTS metrics_snapshots (
   id TEXT PRIMARY KEY,
   entity_id TEXT NOT NULL,
